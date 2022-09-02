@@ -1,2 +1,2 @@
-# Polyglot
+# PolyGlot
 ETHOnline Hackathon
