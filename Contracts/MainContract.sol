@@ -13,7 +13,7 @@ contract MainContract{
         address payable validator;
         uint validatorId;
         uint language;
-        uint nOfValations;
+        uint nOfValidations;
     }
 
     struct Translator{
