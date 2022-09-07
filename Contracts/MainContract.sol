@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 contract MainContract{
 
     address payable owner;
-    address payable temporaryAddress=payable(0x0000000000000000000000000000000000000000);
+    address payable temporaryAddress;
     address [] nullAddress;
     string matic="";
     string usdt="";
@@ -21,6 +21,10 @@ contract MainContract{
     mapping(uint=>Request) public findRequest;
     mapping(uint=>bool) public isClient;
     mapping(address=> mapping(uint=>bool)) public isFluent;
+    mapping(address=> mapping(uint=>bool)) public hasValidated;
+    mapping(address=>Translator) public findTranslator;
+    mapping(address=>Validator) public findValidator;
+
 
     struct Validator{
         address payable validator;
@@ -45,11 +49,13 @@ contract MainContract{
         uint requestId;
         address payable client;
         address payable translator;
+        uint timeFrame;
         uint amount;
         string currency;
         uint docLang;
         uint langNeeded;
         address [] pendingTranslators;
+        address [] validatorApprovals;
         bool completed;
 
     }
@@ -59,7 +65,7 @@ contract MainContract{
     }
  
 
-    function addLanguage() external{
+    function addLanguage() external onlyOwner{
         languages.push(languages.length);
     }
 
@@ -68,6 +74,7 @@ contract MainContract{
         Validator memory newValidator;
         newValidator= Validator(addr, nOfValidators, lang, 0);
         isValidator[addr]=true;
+        findValidator[addr]=newValidator;
 
         for (uint i; i<lang.length; i++){
             isFluent[addr][lang[i]]=true;
@@ -79,7 +86,11 @@ contract MainContract{
         Translator memory newTranslator;
         newTranslator= Translator(addr, nOfTranslators, lang, 0);
         isTranslator[addr]=true;
+        findTranslator[addr]=newTranslator;
 
+        for (uint i; i<lang.length; i++){
+            isFluent[addr][lang[i]]=true;
+        }
     }
 
     function addMember(address payable addr, uint[] calldata lang) external{
@@ -89,15 +100,15 @@ contract MainContract{
         isMember[addr]=true;
     }
 
-    function requestTranslation(uint amount, uint currencyPlace, uint doclang, uint langNeeded) public payable{
+    function requestTranslation(uint amount, uint timeFrame, uint currencyPlace, uint doclang, uint langNeeded) public payable{
         
-
         string memory currency=currencies[currencyPlace];
         nOfRequests+=1;
         address payable client=payable(msg.sender);
+        //IERC20 TRANSFER
 
         Request memory newRequest;
-        newRequest=Request(nOfRequests, client, temporaryAddress, amount, currency, doclang, langNeeded, nullAddress, false);
+        newRequest=Request(nOfRequests, client, temporaryAddress, timeFrame, amount, currency, doclang, langNeeded, nullAddress, nullAddress, false);
         findRequest[nOfRequests]=newRequest;
         isClient[nOfRequests]=true;
     }
@@ -117,22 +128,38 @@ contract MainContract{
     }
 
     function submitTranslation() public onlyTranslator{
-
+        //Potentially  Event checker
     }
 
     function verifyTranslation(uint requestId) public onlyValidator{
         require(isFluent[msg.sender][findRequest[requestId].docLang]==true);
         require(isFluent[msg.sender][findRequest[requestId].langNeeded]==true);
+        require(hasValidated[msg.sender][requestId]==false );
 
+        hasValidated[msg.sender][requestId]=true;
+        findRequest[requestId].validatorApprovals.push(msg.sender);
+
+        if(findRequest[requestId].validatorApprovals.length>2){
+            payRequest(requestId);
+        }
 
 
     }
 
-    function challengeTranslation() public{
-
+    function challengeTranslation(uint requestId) public{
+        
     }
 
-    function payRequest() public{
+    function payRequest(uint requestId) private{
+        
+        //IERC20 TRANSFER
+
+        address payable validatedTranslator=findRequest[requestId].translator;
+        findTranslator[validatedTranslator].nOfTranslations+=1;
+
+        for (uint i=0; i<findRequest[requestId].validatorApprovals.length; i++){
+            findValidator[findRequest[requestId].validatorApprovals[i]].nOfValidations+=1;
+        }
 
     }
 
@@ -148,9 +175,13 @@ contract MainContract{
 
     }
 
+    function addFluency() public{
+
+    }
+
     function deposit() external payable onlyOwner{}
 
-    function withdraw(uint amount) public onlyOwner{
+    function withdraw(uint amount) public payable onlyOwner{
         require(amount<address(this).balance, "Not enough ETH");
 
         (bool success, )= owner.call{value: amount}("");
