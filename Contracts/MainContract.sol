@@ -8,12 +8,13 @@ contract MainContract{
     address [] nullAddress;
     string matic="";
     string usdt="";
-    string [] currencies=[matic, usdt];
+    string [] currencies;
     uint [] languages=[1,2,3];
     uint nOfValidators;
     uint nOfTranslators;
     uint nOfMembers;
     uint nOfRequests;
+    uint rewardFee=2500000000000000;
     
     mapping(address=>bool) public isValidator;
     mapping(address=>bool) public isTranslator;
@@ -22,6 +23,7 @@ contract MainContract{
     mapping(uint=>bool) public isClient;
     mapping(address=> mapping(uint=>bool)) public isFluent;
     mapping(address=> mapping(uint=>bool)) public hasValidated;
+    mapping(address=> mapping(uint=>bool)) public hasDenied;
     mapping(address=>Translator) public findTranslator;
     mapping(address=>Validator) public findValidator;
 
@@ -55,8 +57,9 @@ contract MainContract{
         uint docLang;
         uint langNeeded;
         address [] pendingTranslators;
-        address [] validatorApprovals;
-        bool completed;
+        address payable [] validatorApprovals;
+        address payable [] validatorDenials;
+        uint stage;
 
     }
 
@@ -64,6 +67,7 @@ contract MainContract{
         owner=payable(msg.sender);
     }
  
+    //function addCurency() public{}
 
     function addLanguage() external onlyOwner{
         languages.push(languages.length);
@@ -93,74 +97,115 @@ contract MainContract{
         }
     }
 
-    function addMember(address payable addr, uint[] calldata lang) external{
+    function becomeMember(address payable addr, uint[] calldata lang) external payable{
+        require(msg.value>7000000000000000, "You must deposit 0.007ETH");
+
         nOfMembers+=1;
         Member memory newMember;
         newMember=Member(addr,lang);
         isMember[addr]=true;
     }
 
-    function requestTranslation(uint amount, uint timeFrame, uint currencyPlace, uint doclang, uint langNeeded) public payable{
-        
+    function requestTranslation( uint timeFrame, uint currencyPlace, uint doclang, uint langNeeded) public payable{
+        require(msg.value>7000000000000000, "You must deposit 0.007ETH");
+
+        uint amount=msg.value;
         string memory currency=currencies[currencyPlace];
         nOfRequests+=1;
         address payable client=payable(msg.sender);
         //IERC20 TRANSFER
 
         Request memory newRequest;
-        newRequest=Request(nOfRequests, client, temporaryAddress, timeFrame, amount, currency, doclang, langNeeded, nullAddress, nullAddress, false);
+        newRequest=Request(nOfRequests, client, temporaryAddress, timeFrame, amount, currency, doclang, langNeeded, nullAddress, nullAddress, nullAddress, 0);
         findRequest[nOfRequests]=newRequest;
         isClient[nOfRequests]=true;
     }
-    mapping(address=>bool) isPendingTranslator;
 
-    function proposeTranslation(uint requestId) public onlyTranslator{
-        require(isFluent[msg.sender][findRequest[requestId].docLang]==true);
-        require(isFluent[msg.sender][findRequest[requestId].langNeeded]==true);
+    function proposeTranslation(uint requestId) public onlyTranslator onlyFluent(requestId) cannotGoBack(requestId){
 
         findRequest[requestId].pendingTranslators.push(msg.sender);
+        findRequest[requestId].stage=1;
     }
 
-    function approveTranslator(uint requestId, uint chosenTranslator) public{
+    function approveTranslator(uint requestId, uint chosenTranslator) public cannotGoBack(requestId){
         require(isClient[requestId]==true, "This is not your request");
 
         findRequest[requestId].translator= payable(findRequest[requestId].pendingTranslators[chosenTranslator]);
+        findRequest[requestId].stage=2;
     }
 
-    function submitTranslation() public onlyTranslator{
+    function submitTranslation(uint requestId) public payable onlyTranslator cannotGoBack(requestId){
         //Potentially  Event checker
+        require(findRequest[requestId].translator==msg.sender, "This is not your request");
+        findRequest[requestId].stage=3;
+
+        if(findRequest[requestId].timeFrame - block.timestamp<0){
+            rejectTranslation(requestId);
+            uint amount=findRequest[requestId].amount;
+
+            (bool sent, ) = findRequest[requestId].client.call{value:amount}("");
+            require(sent, "Failed to send back ETH");
+        }
     }
 
-    function verifyTranslation(uint requestId) public onlyValidator{
-        require(isFluent[msg.sender][findRequest[requestId].docLang]==true);
-        require(isFluent[msg.sender][findRequest[requestId].langNeeded]==true);
-        require(hasValidated[msg.sender][requestId]==false );
-
+    function verifyTranslation(uint requestId) public onlyValidator onlyFluent(requestId) onlyNewValidator(requestId) cannotGoBack(requestId){
         hasValidated[msg.sender][requestId]=true;
         findRequest[requestId].validatorApprovals.push(msg.sender);
 
         if(findRequest[requestId].validatorApprovals.length>2){
+            findRequest[requestId].stage=5;
             payRequest(requestId);
         }
 
+    }
+
+    function denyTranslation(uint requestId) public onlyValidator onlyFluent(requestId) onlyNewValidator(requestId) cannotGoBack(requestId){
+        hasDenied[msg.sender][requestId]=true;
+        findRequest[requestId].validatorDenials.push(msg.sender);
+
+        if(findRequest[requestId].validatorDenials.length>1){
+            findRequest[requestId].stage=6;
+            rejectTranslation(requestId);
+        }
+    }
+
+    function challengeTranslation(uint requestId) public cannotGoBack(requestId){
+        require(isClient[requestId]=true);
+        findRequest[requestId].stage=4;
 
     }
 
-    function challengeTranslation(uint requestId) public{
-        
+    function rejectTranslation(uint requestId) public payable cannotGoBack(requestId){
+         require(findRequest[requestId].stage==6);
+         
+        uint amount=findRequest[requestId].amount;
+        (bool sent, ) = findRequest[requestId].client.call{value:amount}("");
+        require(sent, "Failed to send back ETH");
+
+        if(findRequest[requestId].validatorDenials.length>1){
+            address payable aValidator=findRequest[requestId].validatorDenials[0];
+            address payable bValidator=findRequest[requestId].validatorDenials[1];
+
+        (bool sent1, ) = aValidator.call{value:rewardFee}("");
+        (bool sent2, ) = bValidator.call{value:rewardFee}("");
+        require(sent1, "Failed to send ETH to 1st Validator");
+        require(sent2, "Failed to send ETH to 2nd Validator");     
+        } 
     }
 
-    function payRequest(uint requestId) private{
-        
+    function payRequest(uint requestId) public payable cannotGoBack(requestId){
+        require(findRequest[requestId].stage==5);
         //IERC20 TRANSFER
 
         address payable validatedTranslator=findRequest[requestId].translator;
         findTranslator[validatedTranslator].nOfTranslations+=1;
 
         for (uint i=0; i<findRequest[requestId].validatorApprovals.length; i++){
-            findValidator[findRequest[requestId].validatorApprovals[i]].nOfValidations+=1;
-        }
+            address payable approvedValidator=findRequest[requestId].validatorApprovals[i];
 
+            findValidator[approvedValidator].nOfValidations+=1;
+            approvedValidator.call{value:rewardFee}("");
+        }
     }
 
     function getReward() internal{
@@ -175,7 +220,7 @@ contract MainContract{
 
     }
 
-    function addFluency() public{
+    function addFluency(uint id, uint lang) public{
 
     }
 
@@ -205,6 +250,24 @@ contract MainContract{
 
     modifier onlyMember(){
         require(isMember[msg.sender]==true, "You are not a Member");
+        _;
+    }
+
+    modifier onlyFluent(uint requestId){
+        require(isFluent[msg.sender][findRequest[requestId].docLang]==true);
+        require(isFluent[msg.sender][findRequest[requestId].langNeeded]==true);
+        _;
+
+    }
+
+    modifier onlyNewValidator(uint requestId){
+        require(hasValidated[msg.sender][requestId]==false );
+        require(hasDenied[msg.sender][requestId]==false );
+        _;
+    }
+
+    modifier cannotGoBack(uint requestId){
+        require(findRequest[requestId].stage>=findRequest[requestId].stage, "This function can no longer be used" );
         _;
     }
 
