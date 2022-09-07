@@ -15,6 +15,7 @@ contract MainContract{
     uint nOfMembers;
     uint nOfRequests;
     uint rewardFee=2500000000000000;
+    uint timeToValidate=11520; //48 hours
     
     mapping(address=>bool) public isValidator;
     mapping(address=>bool) public isTranslator;
@@ -106,8 +107,8 @@ contract MainContract{
         isMember[addr]=true;
     }
 
-    function requestTranslation( uint timeFrame, uint currencyPlace, uint doclang, uint langNeeded) public payable{
-        require(msg.value>7000000000000000, "You must deposit 0.007ETH");
+    function requestTranslation( uint chosenTime, uint currencyPlace, uint doclang, uint langNeeded) public payable{
+        require(msg.value>7000000000000000, "You must deposit at least 0.007ETH");
 
         uint amount=msg.value;
         string memory currency=currencies[currencyPlace];
@@ -116,7 +117,7 @@ contract MainContract{
         //IERC20 TRANSFER
 
         Request memory newRequest;
-        newRequest=Request(nOfRequests, client, temporaryAddress, timeFrame, amount, currency, doclang, langNeeded, nullAddress, nullAddress, nullAddress, 0);
+        newRequest=Request(nOfRequests, client, temporaryAddress, chosenTime+block.timestamp, amount, currency, doclang, langNeeded, nullAddress, nullAddress, nullAddress, 0);
         findRequest[nOfRequests]=newRequest;
         isClient[nOfRequests]=true;
     }
@@ -138,13 +139,11 @@ contract MainContract{
         //Potentially  Event checker
         require(findRequest[requestId].translator==msg.sender, "This is not your request");
         findRequest[requestId].stage=3;
+        findRequest[requestId].timeFrame+=timeToValidate;
 
         if(findRequest[requestId].timeFrame - block.timestamp<0){
+            findRequest[requestId].stage=5;
             rejectTranslation(requestId);
-            uint amount=findRequest[requestId].amount;
-
-            (bool sent, ) = findRequest[requestId].client.call{value:amount}("");
-            require(sent, "Failed to send back ETH");
         }
     }
 
@@ -153,7 +152,7 @@ contract MainContract{
         findRequest[requestId].validatorApprovals.push(msg.sender);
 
         if(findRequest[requestId].validatorApprovals.length>2){
-            findRequest[requestId].stage=5;
+            findRequest[requestId].stage=4;
             payRequest(requestId);
         }
 
@@ -163,20 +162,21 @@ contract MainContract{
         hasDenied[msg.sender][requestId]=true;
         findRequest[requestId].validatorDenials.push(msg.sender);
 
-        if(findRequest[requestId].validatorDenials.length>1){
-            findRequest[requestId].stage=6;
+        if(findRequest[requestId].validatorDenials.length>1 ||findRequest[requestId].timeFrame - block.timestamp<0){
+            findRequest[requestId].stage=5;
             rejectTranslation(requestId);
         }
     }
 
-    function challengeTranslation(uint requestId) public cannotGoBack(requestId){
-        require(isClient[requestId]=true);
-        findRequest[requestId].stage=4;
+    function challengeTranslation(uint requestId) public {
+        require(isClient[requestId]=true, "You are not the client of this request");
+        require(findRequest[requestId].timeFrame-block.timestamp>0);
+        findRequest[requestId].stage=3;
 
     }
 
     function rejectTranslation(uint requestId) public payable cannotGoBack(requestId){
-         require(findRequest[requestId].stage==6);
+         require(findRequest[requestId].stage==5);
          
         uint amount=findRequest[requestId].amount;
         (bool sent, ) = findRequest[requestId].client.call{value:amount}("");
@@ -194,7 +194,7 @@ contract MainContract{
     }
 
     function payRequest(uint requestId) public payable cannotGoBack(requestId){
-        require(findRequest[requestId].stage==5);
+        require(findRequest[requestId].stage==4);
         //IERC20 TRANSFER
 
         address payable validatedTranslator=findRequest[requestId].translator;
