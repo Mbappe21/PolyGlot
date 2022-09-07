@@ -4,8 +4,6 @@ pragma solidity 0.8.16;
 contract MainContract{
 
     address payable owner;
-    address payable temporaryAddress;
-    address [] nullAddress;
     string matic="";
     string usdt="";
     string [] currencies;
@@ -60,9 +58,24 @@ contract MainContract{
         address [] pendingTranslators;
         address payable [] validatorApprovals;
         address payable [] validatorDenials;
+        bool challenged;
         uint stage;
 
     }
+
+        event NewLanguage();
+        event NewValidator(uint id, address indexed validator, uint[] lang);
+        event NewTranslator(uint id, address indexed validator, uint[] lang);
+        event NewMember(uint id, address indexed validator, uint[] lang);
+        event NewTranslation(uint requestId, uint docLang, uint langNeeded);
+        event NewPendingTranslator(uint requestId, address indexed pendTrans);
+        event TranslatorApproved(uint requestId, address indexed translator);
+        event TranslationSubmitted(uint requestId, uint docLang, uint langNeeded);
+        event ValidatorVoted(uint requestId, uint nOfApprovals, uint nOfDenials);
+        event TranslationValidated(uint requestId);
+        event TranslationDenied(uint requestId);
+        event TranslationChallenged(uint requestId);
+        event RequestClosed(uint requestId);
 
     constructor() payable{
         owner=payable(msg.sender);
@@ -72,6 +85,7 @@ contract MainContract{
 
     function addLanguage() external onlyOwner{
         languages.push(languages.length);
+        emit NewLanguage() ;
     }
 
     function addValidator(address payable addr, uint[] calldata lang) external onlyOwner{
@@ -84,6 +98,7 @@ contract MainContract{
         for (uint i; i<lang.length; i++){
             isFluent[addr][lang[i]]=true;
         }
+        emit NewValidator(nOfValidators, addr, lang);
     }
 
     function addTranslator(address payable addr, uint[] calldata lang) external onlyValidator{
@@ -96,6 +111,7 @@ contract MainContract{
         for (uint i; i<lang.length; i++){
             isFluent[addr][lang[i]]=true;
         }
+        emit NewTranslator(nOfTranslators, addr, lang);
     }
 
     function becomeMember(address payable addr, uint[] calldata lang) external payable{
@@ -105,6 +121,7 @@ contract MainContract{
         Member memory newMember;
         newMember=Member(addr,lang);
         isMember[addr]=true;
+        emit NewMember(nOfMembers, addr, lang);
     }
 
     function requestTranslation( uint chosenTime, uint currencyPlace, uint doclang, uint langNeeded) public payable{
@@ -114,18 +131,23 @@ contract MainContract{
         string memory currency=currencies[currencyPlace];
         nOfRequests+=1;
         address payable client=payable(msg.sender);
+        address payable temporaryAddress;
+        address [] memory pendingTrans;
+        address payable [] memory nullAddress;
         //IERC20 TRANSFER
 
         Request memory newRequest;
-        newRequest=Request(nOfRequests, client, temporaryAddress, chosenTime+block.timestamp, amount, currency, doclang, langNeeded, nullAddress, nullAddress, nullAddress, 0);
+        newRequest=Request(nOfRequests, client, temporaryAddress, chosenTime+block.timestamp, amount, currency, doclang, langNeeded, pendingTrans, nullAddress, nullAddress,false, 0);
         findRequest[nOfRequests]=newRequest;
         isClient[nOfRequests]=true;
+        emit NewTranslation(nOfRequests, findRequest[nOfRequests].docLang, findRequest[nOfRequests].langNeeded);
     }
 
     function proposeTranslation(uint requestId) public onlyTranslator onlyFluent(requestId) cannotGoBack(requestId){
 
         findRequest[requestId].pendingTranslators.push(msg.sender);
         findRequest[requestId].stage=1;
+        emit NewPendingTranslator(requestId, msg.sender);
     }
 
     function approveTranslator(uint requestId, uint chosenTranslator) public cannotGoBack(requestId){
@@ -133,6 +155,7 @@ contract MainContract{
 
         findRequest[requestId].translator= payable(findRequest[requestId].pendingTranslators[chosenTranslator]);
         findRequest[requestId].stage=2;
+        emit TranslatorApproved(requestId, findRequest[requestId].translator);
     }
 
     function submitTranslation(uint requestId) public payable onlyTranslator cannotGoBack(requestId){
@@ -144,35 +167,51 @@ contract MainContract{
         if(findRequest[requestId].timeFrame - block.timestamp<0){
             findRequest[requestId].stage=5;
             rejectTranslation(requestId);
+        }else{
+            emit TranslationSubmitted(requestId, findRequest[requestId].docLang, findRequest[requestId].langNeeded);
         }
     }
 
     function verifyTranslation(uint requestId) public onlyValidator onlyFluent(requestId) onlyNewValidator(requestId) cannotGoBack(requestId){
+        if(findRequest[requestId].timeFrame - block.timestamp<0){
+            findRequest[requestId].stage=5;
+            rejectTranslation(requestId);
+        }
         hasValidated[msg.sender][requestId]=true;
-        findRequest[requestId].validatorApprovals.push(msg.sender);
+        findRequest[requestId].validatorApprovals.push(payable(msg.sender));
+        emit ValidatorVoted(requestId, findRequest[requestId].validatorApprovals.length, findRequest[requestId].validatorDenials.length);
 
         if(findRequest[requestId].validatorApprovals.length>2){
             findRequest[requestId].stage=4;
-            payRequest(requestId);
+            findRequest[requestId].timeFrame+=5760; //24 hours
+            emit TranslationValidated(requestId);
         }
 
     }
 
     function denyTranslation(uint requestId) public onlyValidator onlyFluent(requestId) onlyNewValidator(requestId) cannotGoBack(requestId){
         hasDenied[msg.sender][requestId]=true;
-        findRequest[requestId].validatorDenials.push(msg.sender);
+        findRequest[requestId].validatorDenials.push(payable(msg.sender));
 
         if(findRequest[requestId].validatorDenials.length>1 ||findRequest[requestId].timeFrame - block.timestamp<0){
             findRequest[requestId].stage=5;
             rejectTranslation(requestId);
+        }else{
+            emit ValidatorVoted(requestId, findRequest[requestId].validatorApprovals.length, findRequest[requestId].validatorDenials.length);
         }
+
     }
 
     function challengeTranslation(uint requestId) public {
         require(isClient[requestId]=true, "You are not the client of this request");
-        require(findRequest[requestId].timeFrame-block.timestamp>0);
-        findRequest[requestId].stage=3;
+        require(findRequest[requestId].timeFrame-block.timestamp>0, "Sorry, you can no longer challenge the request");
+        require(findRequest[requestId].stage !=6);
+        require(findRequest[requestId].challenged=false, "This Request was already challenged");
 
+        findRequest[requestId].challenged=true;
+        findRequest[requestId].timeFrame=block.timestamp+timeToValidate;
+        findRequest[requestId].stage=3;
+        emit TranslationChallenged(requestId);
     }
 
     function rejectTranslation(uint requestId) public payable cannotGoBack(requestId){
@@ -190,11 +229,16 @@ contract MainContract{
         (bool sent2, ) = bValidator.call{value:rewardFee}("");
         require(sent1, "Failed to send ETH to 1st Validator");
         require(sent2, "Failed to send ETH to 2nd Validator");     
-        } 
+        }
+        
+        emit TranslationDenied(requestId);
     }
 
     function payRequest(uint requestId) public payable cannotGoBack(requestId){
-        require(findRequest[requestId].stage==4);
+        require(findRequest[requestId].stage==4, "This function is not available");
+        require(findRequest[requestId].timeFrame-block.timestamp<0, "The pay is not yet available");
+
+        findRequest[requestId].stage=6;
         //IERC20 TRANSFER
 
         address payable validatedTranslator=findRequest[requestId].translator;
@@ -204,25 +248,27 @@ contract MainContract{
             address payable approvedValidator=findRequest[requestId].validatorApprovals[i];
 
             findValidator[approvedValidator].nOfValidations+=1;
-            approvedValidator.call{value:rewardFee}("");
+            (bool sent, ) =approvedValidator.call{value:rewardFee}("");
+            require(sent, "Failed to send back ETH");
         }
+        emit RequestClosed(requestId);
     }
 
-    function getReward() internal{
+    // function getReward() internal{
 
-    }
+    // }
 
-    function checkRole() public view returns(bool){
+    // function checkRole() public view returns(bool){
 
-    }
+    // }
 
-    function checkNotation() public view returns(bool){
+    // function checkNotation() public view returns(bool){
 
-    }
+    // }
 
-    function addFluency(uint id, uint lang) public{
+    // function addFluency(uint id, uint lang) public{
 
-    }
+    // }
 
     function deposit() external payable onlyOwner{}
 
@@ -267,7 +313,7 @@ contract MainContract{
     }
 
     modifier cannotGoBack(uint requestId){
-        require(findRequest[requestId].stage>=findRequest[requestId].stage, "This function can no longer be used" );
+        require(findRequest[requestId].stage<findRequest[requestId].stage+1, "This function can no longer be used" );
         _;
     }
 
