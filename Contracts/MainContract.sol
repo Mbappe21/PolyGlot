@@ -311,7 +311,7 @@ contract MainContract{
     }
 
     modifier cannotGoBack(uint requestId){
-        require(findRequest[requestId].stage<findRequest[requestId].stage+1, "This function can no longer be used" );
+        require(findRequest[requestId].stage<findRequest[requestId].stage+1, "This function is no more available" );
         _;
     }
 
