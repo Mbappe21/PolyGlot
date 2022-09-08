@@ -222,15 +222,13 @@ contract MainContract{
         require(sent, "Failed to send back ETH");
 
         if(findRequest[requestId].validatorDenials.length>1){
-            address payable aValidator=findRequest[requestId].validatorDenials[0];
-            address payable bValidator=findRequest[requestId].validatorDenials[1];
-
-        (bool sent1, ) = aValidator.call{value:rewardFee}("");
-        (bool sent2, ) = bValidator.call{value:rewardFee}("");
-        require(sent1, "Failed to send ETH to 1st Validator");
-        require(sent2, "Failed to send ETH to 2nd Validator");     
+            for(uint i=0; i<findRequest[requestId].validatorDenials.length; i++){
+            address payable aValidator;
+            aValidator=findRequest[requestId].validatorDenials[i];
+            (bool sent1, ) = aValidator.call{value:rewardFee}("");
+            require(sent1, "Failed to send ETH to Validator");  
+            }
         }
-        
         emit TranslationDenied(requestId);
     }
 
