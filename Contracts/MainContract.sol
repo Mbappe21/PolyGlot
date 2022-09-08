@@ -124,7 +124,7 @@ contract MainContract{
         emit NewMember(nOfMembers, addr, lang);
     }
 
-    function requestTranslation( uint chosenTime, uint currencyPlace, uint doclang, uint langNeeded) public payable{
+    function requestTranslation( uint timeFrame, uint currencyPlace, uint doclang, uint langNeeded) public payable{
         require(msg.value>7000000000000000, "You must deposit at least 0.007ETH");
 
         uint amount=msg.value;
@@ -137,7 +137,7 @@ contract MainContract{
         //IERC20 TRANSFER
 
         Request memory newRequest;
-        newRequest=Request(nOfRequests, client, temporaryAddress, chosenTime+block.timestamp, amount, currency, doclang, langNeeded, pendingTrans, nullAddress, nullAddress,false, 0);
+        newRequest=Request(nOfRequests, client, temporaryAddress, timeFrame, amount, currency, doclang, langNeeded, pendingTrans, nullAddress, nullAddress,false, 0);
         findRequest[nOfRequests]=newRequest;
         isClient[nOfRequests]=true;
         emit NewTranslation(nOfRequests, findRequest[nOfRequests].docLang, findRequest[nOfRequests].langNeeded);
@@ -155,6 +155,7 @@ contract MainContract{
 
         findRequest[requestId].translator= payable(findRequest[requestId].pendingTranslators[chosenTranslator]);
         findRequest[requestId].stage=2;
+        findRequest[requestId].timeFrame+=block.timestamp;
         emit TranslatorApproved(requestId, findRequest[requestId].translator);
     }
 
@@ -230,6 +231,7 @@ contract MainContract{
             }
         }
         emit TranslationDenied(requestId);
+        emit RequestClosed(requestId);
     }
 
     function payRequest(uint requestId) public payable cannotGoBack(requestId){
