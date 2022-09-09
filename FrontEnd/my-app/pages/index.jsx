@@ -2,6 +2,8 @@ import Head from 'next/head'
 import Image from 'next/image'
 import * as Io from "react-icons/io5";
 
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+
 
 export default function Home() {
   return (
@@ -12,11 +14,11 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="relative w-screen h-screen bg-gradient-to-tl from-gray-400 to-blue-800  overflow-hidden">
+      <div className="relative w-screen h-screen bg-[url('/background.jpg')] bg-cover bg-no-repeat overflow-hidden">
 
-          <div className='absolute -right-[1200px] bottom-0 top-1/3 w-[3000px] h-[3000px] bg-blue-900 rounded-full
+          {/* <div className='absolute -right-[1200px] bottom-0 top-1/3 w-[3000px] h-[3000px] bg-blue-900 rounded-full
           filter blur-md bg-opacity-90' >
-          </div>
+          </div> */}
 
           <div className="absolute inset-0 bg-transparent px-11 p-4 text-white">
               <nav className=" flex justify-between py-2">
@@ -28,8 +30,9 @@ export default function Home() {
                     <span className="font-semibold text-white text-2xl">PolyGlot</span>
                 </div>
 
-                <button className="drop-shadow-xl shadow-black font-semibold p-0.5 px-5 rounded-lg  bg-blue-500
-                hover:bg-blue-600">Connect Wallet</button>
+                {/* <button className="drop-shadow-xl shadow-black font-semibold p-0.5 px-5 rounded-lg  bg-blue-500
+                hover:bg-blue-600">Connect Wallet</button> */}
+                <ConnectButton chainStatus="icon" showBalance={false} />
               </nav>
 
 
