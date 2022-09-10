@@ -1,33 +1,23 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
-contract Second{
+contract Seventh{
 
     address payable owner;
-    string [] currencies=["MATIC", "USDT"];
     uint [] languages=[1,2,3];
     uint nOfValidators;
     uint nOfTranslators;
     uint nOfMembers;
     uint nOfRequests;
-    uint rewardFee=2500000000000000;
-    uint timeToValidate=40; //10 MIN
-    
-    mapping(address=>bool) public isValidator;
-    mapping(address=>bool) public isTranslator;
-    mapping(address=>bool) public isMember;
-    mapping(uint=>bool) public isClient;
+
     mapping(address=> mapping(uint=>bool)) public isFluent;
-    mapping(address=> mapping(uint=>bool)) public hasValidated;
-    mapping(address=> mapping(uint=>bool)) public hasDenied;
     mapping(address=>Translator) public findTranslator;
     mapping(address=>Validator) public findValidator;
     mapping(address=>Member) public findMember;
     mapping(uint=>Request) public findRequest;
-    mapping(uint => address payable []) public hasVRequest;
-    mapping(uint => address payable []) public hasDRequest;
-    mapping(uint =>address []) public allPendingTranslators;
-    
+    mapping(address=>mapping(uint=>bool))hasWorked;
+
+   
     struct Validator{
         address payable validator;
         uint validatorId;
@@ -51,30 +41,35 @@ contract Second{
         uint nOfSpokenlanguages;
     }
 
+    struct Role{
+        uint nOfAddr;
+        address addrId1;
+        address addrId2;
+        address addrId3;
+    }
+
     struct Request{
         uint requestId;
         address payable client;
         address payable translator;
         uint timeFrame;
         uint amount;
-        string currency;
         uint docLang;
         uint langNeeded;
-        uint pendingTranslators;
-        uint nOfApprovals;
-        uint nOfDenials;
+        Role alPendingTranslators;
+        Role Approvers;
+        Role Deniers;
         bool challenged;
         uint stage;
-
     }
 
         event NewLanguage(uint idLanguage, string language);
         event NewValidator(uint validatorId, uint spokenlanguage1, uint spokenlanguage2);
         event NewTranslator(uint translatorId, uint spokenlanguage1, uint spokenlanguage2);
         event NewMember(uint memberId, uint spokenlanguage1, uint spokenlanguage2);
-        event NewTranslation(uint requestId, uint docLang, uint langNeeded);
+        event NewTranslationRequest(uint requestId, uint docLang, uint langNeeded);
         event NewPendingTranslator(uint requestId, address indexed pendTrans);
-        event TranslatorApproved(uint requestId, address indexed translator);
+        event TranslatorApproved(uint requestId, address indexed translator, uint timeFrame);
         event TranslationSubmitted(uint requestId, uint docLang, uint langNeeded);
         event ValidatorVoted(uint requestId, uint nOfApprovals, uint nOfDenials);
         event TranslationValidated(uint requestId);
@@ -85,8 +80,6 @@ contract Second{
     constructor() payable{
         owner=payable(msg.sender);
     }
- 
-    //function addCurency() public{}
 
     function addLanguage(string memory language) external onlyOwner{
         languages.push(languages.length);
@@ -94,26 +87,22 @@ contract Second{
     }
 
     function addValidator(address payable addr, uint spokenlanguage1, uint spokenlanguage2) external onlyOwner{
-        require(isValidator[addr]==false);
+        require(findValidator[addr].validatorId==0, "Role already granted");
         nOfValidators+=1;
         Validator memory newValidator;
         newValidator= Validator(addr, nOfValidators, 2, 0, 0);
-        isValidator[addr]=true;
         findValidator[addr]=newValidator;
-
             isFluent[addr][spokenlanguage1]=true;
             isFluent[addr][spokenlanguage2]=true;
         emit NewValidator(nOfValidators, spokenlanguage1, spokenlanguage2);
     }
 
     function addTranslator(address payable addr, uint spokenlanguage1, uint spokenlanguage2) external onlyValidator{
-        require(isTranslator[addr]==false);
+        require(findTranslator[addr].translatorId==0, "Role already granted");
         nOfTranslators+=1;
         Translator memory newTranslator;
         newTranslator= Translator(addr, nOfTranslators, 2, 0, 0, 0);
-        isTranslator[addr]=true;
         findTranslator[addr]=newTranslator;
-
         isFluent[addr][spokenlanguage1]=true;
         isFluent[addr][spokenlanguage2]=true;
        
@@ -121,13 +110,12 @@ contract Second{
     }
 
     function becomeMember(address payable addr, uint spokenlanguage1, uint spokenlanguage2) external payable{
-        require(isMember[addr]==false);
+        require(findMember[addr].memberId==0, "Role already granted");
         require(msg.value==7000000000000000, "You must deposit 0.007ETH");
 
         nOfMembers+=1;
         Member memory newMember;
         newMember=Member(addr, nOfMembers, 2);
-        isMember[addr]=true;
         isFluent[addr][spokenlanguage1]=true;
         isFluent[addr][spokenlanguage2]=true;
         findMember[addr]=newMember;
@@ -135,46 +123,62 @@ contract Second{
         emit NewMember(nOfMembers, spokenlanguage1, spokenlanguage2);
     }
 
-    function requestTranslation( uint timeFrame, uint currencyPlace, uint doclang, uint langNeeded) public payable{
+    function requestTranslation( uint timeFrame, uint doclang, uint langNeeded) external payable{
         require(msg.value>7000000000000000, "You must deposit at least 0.007ETH");
 
-        string memory currency=currencies[currencyPlace];
         nOfRequests+=1;
         address payable client=payable(msg.sender);
         address payable temporaryAddress;
 
-        //IERC20 TRANSFER
-
         Request memory newRequest;
-        newRequest=Request(nOfRequests, client, temporaryAddress, timeFrame, msg.value, currency, doclang, langNeeded, 0, 0, 0,false, 0);
+        Role memory role;
+        newRequest=Request(nOfRequests, client, temporaryAddress, timeFrame, msg.value, doclang, langNeeded, role, role, role, false, 0);
         findRequest[nOfRequests]=newRequest;
-        isClient[nOfRequests]=true;
-        emit NewTranslation(nOfRequests, findRequest[nOfRequests].docLang, findRequest[nOfRequests].langNeeded);
+
+        emit NewTranslationRequest(nOfRequests, findRequest[nOfRequests].docLang, findRequest[nOfRequests].langNeeded);
     }
 
     function proposeTranslation(uint requestId) public onlyTranslator onlyFluent(requestId) {
         require(findRequest[requestId].stage==0, "This function is not available");
-        allPendingTranslators[requestId].push(msg.sender);
+     
         findRequest[requestId].stage=1;
-        findRequest[requestId].pendingTranslators+=1;
+        findRequest[requestId].alPendingTranslators.nOfAddr+=1;
+
+        if(findRequest[requestId].alPendingTranslators.nOfAddr==0){
+            findRequest[requestId].alPendingTranslators.addrId1=msg.sender;
+
+        }else if(findRequest[requestId].alPendingTranslators.nOfAddr==1){
+            findRequest[requestId].alPendingTranslators.addrId2=msg.sender;
+        }else{
+            findRequest[requestId].alPendingTranslators.addrId3=msg.sender;
+        }
+
         emit NewPendingTranslator(requestId, msg.sender);
     }
 
-    function approveTranslator(uint requestId, uint chosenTranslatorPosition) public {
-        require(isClient[requestId]==true, "This is not your request");
+    function approveTranslator(uint requestId, uint chosenTranslator) external {
+        require(findRequest[requestId].client==payable(msg.sender), "This is not your request");
         require(findRequest[requestId].stage==1, "This function is not available");
-        findRequest[requestId].translator= payable(allPendingTranslators[requestId][chosenTranslatorPosition]);
+
+        if(chosenTranslator==1){
+            findRequest[requestId].translator=payable(findRequest[requestId].alPendingTranslators.addrId1);
+        }else if(chosenTranslator==2){
+            findRequest[requestId].translator=payable(findRequest[requestId].alPendingTranslators.addrId2);
+        }else if(chosenTranslator==3){
+            findRequest[requestId].translator=payable(findRequest[requestId].alPendingTranslators.addrId3);
+        }
         findRequest[requestId].stage=2;
         findRequest[requestId].timeFrame+=block.timestamp;
-        emit TranslatorApproved(requestId, findRequest[requestId].translator);
+        emit TranslatorApproved(requestId, findRequest[requestId].translator, findRequest[requestId].timeFrame);
     }
 
-    function submitTranslation(uint requestId) public payable onlyTranslator {
+    function submitTranslation(uint requestId) external {
         //Potentially  Event checker
-        require(findRequest[requestId].translator==msg.sender, "This is not your request");
+        require(findRequest[requestId].translator==payable(msg.sender), "This is not your request");
         require(findRequest[requestId].stage==2, "This function is not available");
         findRequest[requestId].stage=3;
-        findRequest[requestId].timeFrame+=timeToValidate;
+        findRequest[requestId].timeFrame+=40;
+        hasWorked[msg.sender][requestId]=true;
 
         if(findRequest[requestId].timeFrame - block.timestamp<0){
             findRequest[requestId].stage=5;
@@ -184,126 +188,161 @@ contract Second{
         }
     }
 
-    function verifyTranslation(uint requestId) public onlyValidator onlyFluent(requestId) onlyNewValidator(requestId) {
+    function verifyTranslation(uint requestId) external onlyValidator onlyFluent(requestId) onlyNewValidator(requestId) {
         require(findRequest[requestId].stage==3, "This function is not available");
-        require(findRequest[requestId].translator!=msg.sender, "The translator cannot validate his own work");
+        require(findRequest[requestId].translator!=payable(msg.sender), "The translator cannot validate his own work");
         if(findRequest[requestId].timeFrame - block.timestamp<0){
             findRequest[requestId].stage=5;
             rejectTranslation(requestId);
-        }
-        hasValidated[msg.sender][requestId]=true;
-        hasVRequest[requestId].push(payable(msg.sender));
-        findTranslator[findRequest[requestId].translator].nOfApprovals+=1;
-       
-        emit ValidatorVoted(requestId, findRequest[requestId].nOfApprovals, findRequest[requestId].nOfDenials);
-
-        if(findRequest[requestId].nOfApprovals>1){
-            findRequest[requestId].stage=4;
-            findRequest[requestId].timeFrame+=20; // 5 mins
-            emit TranslationValidated(requestId);
-            
+        }else{
+            hasWorked[msg.sender][requestId]=true;
+            findTranslator[findRequest[requestId].translator].nOfApprovals+=1;
+            findRequest[requestId].Approvers.nOfAddr+=1;
+            if(findRequest[requestId].Approvers.nOfAddr==0){
+                findRequest[requestId].Approvers.addrId1=payable(msg.sender);
+            }else if(findRequest[requestId].Approvers.nOfAddr==1){
+                findRequest[requestId].Approvers.addrId2=payable(msg.sender);
+            }else if(findRequest[requestId].Approvers.nOfAddr==2){
+                findRequest[requestId].Approvers.addrId3=payable(msg.sender);
+            }
+            emit ValidatorVoted(requestId, findRequest[requestId].Approvers.nOfAddr, findRequest[requestId].Deniers.nOfAddr);
+        
+            if(findRequest[requestId].Approvers.nOfAddr>1){ //Chaneg for test
+                findRequest[requestId].stage=4;
+                findRequest[requestId].timeFrame+=20; // 5 mins
+                emit TranslationValidated(requestId);
+                
+            }
         }
 
     }
 
-    function denyTranslation(uint requestId) public onlyValidator onlyFluent(requestId) onlyNewValidator(requestId) {
+    function denyTranslation(uint requestId) external onlyValidator onlyFluent(requestId) onlyNewValidator(requestId) {
         require(findRequest[requestId].stage==3, "This function is not available");
-        hasDenied[msg.sender][requestId]=true;
-        hasDRequest[requestId].push(payable(msg.sender));
-        findTranslator[findRequest[requestId].translator].nOfDenials+=1;
 
-        if(findRequest[requestId].nOfDenials>0 ||findRequest[requestId].timeFrame - block.timestamp<0){
+        hasWorked[msg.sender][requestId]=true;
+        findTranslator[findRequest[requestId].translator].nOfDenials+=1;
+        findRequest[requestId].Deniers.nOfAddr+=1;
+        emit ValidatorVoted(requestId, findRequest[requestId].Approvers.nOfAddr, findRequest[requestId].Deniers.nOfAddr);
+
+        if(findRequest[requestId].Deniers.nOfAddr==1){
+            findRequest[requestId].Deniers.addrId1=payable(msg.sender);
+        }else if(findRequest[requestId].Deniers.nOfAddr==2 ||findRequest[requestId].timeFrame - block.timestamp<0){
+            findRequest[requestId].Deniers.addrId2=payable(msg.sender);
             findRequest[requestId].stage=5;
             rejectTranslation(requestId);
-        }else{
-            emit ValidatorVoted(requestId, findRequest[requestId].nOfApprovals, findRequest[requestId].nOfDenials);
         }
 
     }
 
-    function challengeTranslation(uint requestId) public {
-        require(isClient[requestId]=true, "You are not the client of this request");
+    function challengeTranslation(uint requestId) external {
+        require(findRequest[requestId].client==payable(msg.sender), "You are not the client of this request");
         require(findRequest[requestId].timeFrame-block.timestamp>0, "Sorry, you can no longer challenge the request");
         require(findRequest[requestId].stage ==4, "This function is not available");
         require(findRequest[requestId].challenged=false, "This Request was already challenged");
 
         findRequest[requestId].challenged=true;
-        findRequest[requestId].timeFrame=block.timestamp+timeToValidate;
+        findRequest[requestId].timeFrame=block.timestamp+40; //10mins
         findRequest[requestId].stage=3;
-        if(findRequest[requestId].nOfApprovals>0){
-            uint nOfApprovers=findRequest[requestId].nOfApprovals;
+
+        if(findRequest[requestId].Approvers.nOfAddr>0){
+            uint nOfApprovers=findRequest[requestId].Deniers.nOfAddr;
             for(uint i=0; i<nOfApprovers; i++){
-                findValidator[hasVRequest[requestId][i]].nOfChallenges+=1;
+                if(i==0){
+                findValidator[findRequest[requestId].Deniers.addrId1].nOfChallenges+=1;
+                }else if(i==1){
+                    findValidator[findRequest[requestId].Deniers.addrId2].nOfChallenges+=1;
+                }else if(i==2){
+                    findValidator[findRequest[requestId].Deniers.addrId3].nOfChallenges+=1;
+                }
             }
         }
         emit TranslationChallenged(requestId);
     }
 
-    function rejectTranslation(uint requestId) public payable {
-         require(findRequest[requestId].stage==5);
+    function rejectTranslation(uint requestId) private {
+         require(findRequest[requestId].stage==5, "This function is not available");
          
         uint amount=findRequest[requestId].amount;
         (bool sent, ) = findRequest[requestId].client.call{value:amount}("");
         require(sent, "Failed to send back ETH");
 
-        if(findRequest[requestId].nOfDenials>0){
-            for(uint i=0; i<findRequest[requestId].nOfDenials; i++){
+        if(findRequest[requestId].Deniers.nOfAddr>0){
+            uint nOfDeniers=findRequest[requestId].Deniers.nOfAddr;
             address payable aValidator;
-            aValidator=hasDRequest[requestId][i];
-            findValidator[aValidator].nOfRequests+=1;
-            (bool sent1, ) = aValidator.call{value:rewardFee}("");
-            require(sent1, "Failed to send ETH to Validator");  
+            
+            for(uint i=0; i<nOfDeniers; i++){
+                if(i==0){
+                aValidator=payable(findRequest[requestId].Deniers.addrId1);
+                findValidator[aValidator].nOfRequests+=1;
+                (bool sent1, ) = aValidator.call{value:2500000000000000}("");
+                require(sent1, "Failed to send ETH to Validator1");  
+                }else if(i==1){
+                    aValidator=payable(findRequest[requestId].Deniers.addrId2);
+                    findValidator[aValidator].nOfRequests+=1;
+                    (bool sent2, ) = aValidator.call{value:2500000000000000}("");
+                    require(sent2, "Failed to send ETH to Validator2"); 
+                }else if(i==2){
+                    aValidator=payable(findRequest[requestId].Deniers.addrId3);
+                    findValidator[aValidator].nOfRequests+=1;
+                    (bool sent3, ) = aValidator.call{value:2500000000000000}("");
+                    require(sent3, "Failed to send ETH to Validator3"); 
+                }
             }
         }
         emit TranslationDenied(requestId);
         emit RequestClosed(requestId);
     }
 
-    function payRequest(uint requestId) public payable {
+    function payRequest(uint requestId) external {
         require(findRequest[requestId].stage==4, "This function is not available");
         require(findRequest[requestId].timeFrame-block.timestamp<0, "The pay is not yet available");
 
         findRequest[requestId].stage=6;
-        //IERC20 TRANSFER
-
         address payable validatedTranslator=findRequest[requestId].translator;
         findTranslator[validatedTranslator].nOfTranslations+=1;
-        (bool sent1, ) =validatedTranslator.call{value:rewardFee}("");
+
+        (bool sent1, ) =validatedTranslator.call{value:2500000000000000}("");
         require(sent1, "Failed to pay Translator");
        
-        for(uint i=0; i<findRequest[requestId].nOfApprovals; i++){
-            address payable aValidator;
-            aValidator=hasVRequest[requestId][i];
-            findValidator[aValidator].nOfRequests+=1;
-            (bool sent, ) =aValidator.call{value:rewardFee}("");
-            require(sent, "Failed to send back ETH");
+        address payable aValidator;
+        for(uint i=0; i<findRequest[requestId].Approvers.nOfAddr; i++){
+            if(i==0){
+                aValidator=payable(findRequest[requestId].Approvers.addrId1);
+                findValidator[aValidator].nOfRequests+=1;
+                (bool sent4, ) = aValidator.call{value:2500000000000000}("");
+                require(sent4, "Failed to send ETH to Validator1");  
+                }else if(i==1){
+                    aValidator=payable(findRequest[requestId].Approvers.addrId2);
+                    findValidator[aValidator].nOfRequests+=1;
+                    (bool sent5, ) = aValidator.call{value:2500000000000000}("");
+                    require(sent5, "Failed to send ETH to Validator2"); 
+                }else if(i==2){
+                    aValidator=payable(findRequest[requestId].Approvers.addrId3);
+                    findValidator[aValidator].nOfRequests+=1;
+                    (bool sent6, ) = aValidator.call{value:2500000000000000}("");
+                    require(sent6, "Failed to send ETH to Validator3"); 
+                }
         }
         emit RequestClosed(requestId);
     }
 
-    // function getReward() internal{}
-
-    // function checkRole() public view returns(bool){}
-
-    // function checkNotation() public view returns(bool){}
-
-    function addFluency(address addr, uint languageId) public onlyOwner{
-        require(isValidator[addr]==true||isTranslator[addr]==true||isMember[addr]==true, "No role");
+    function addFluency(address addr, uint languageId) external onlyOwner{
         require(isFluent[addr][languageId]==false, "Already fluent");
 
         isFluent[addr][languageId]=true;
-        if(isValidator[addr]==true){
+        if(findValidator[addr].validatorId>0){
             findValidator[addr].nOfSpokenlanguages+=1;
-        }else if(isTranslator[addr]==true){
+        }else if(findTranslator[addr].translatorId>0){
             findTranslator[addr].nOfSpokenlanguages+=1;
-        }else if(isMember[addr]==true){
+        }else if(findMember[addr].memberId>0){
             findMember[addr].nOfSpokenlanguages+=1;
         }
     }
 
     function deposit() external payable onlyOwner{}
 
-    function withdraw(uint amount) public onlyOwner{
+    function withdraw(uint amount) external onlyOwner{
         require(amount<address(this).balance, "Not enough ETH");
 
         (bool success, )= owner.call{value: amount}("");
@@ -316,30 +355,24 @@ contract Second{
     }
 
     modifier onlyValidator() {
-        require(isValidator[msg.sender]==true, "You are not a Validator");
+        require(findValidator[msg.sender].validatorId>0, "You are not a Validator");
         _;
     }
 
     modifier onlyTranslator() {
-        require(isValidator[msg.sender]==true, "You are not a Translator");
-        _;
-    }
-
-    modifier onlyMember(){
-        require(isMember[msg.sender]==true, "You are not a Member");
+        require(findTranslator[msg.sender].translatorId>0, "You are not a Translator");
         _;
     }
 
     modifier onlyFluent(uint requestId){
-        require(isFluent[msg.sender][findRequest[requestId].docLang]==true);
-        require(isFluent[msg.sender][findRequest[requestId].langNeeded]==true);
+        require(isFluent[msg.sender][findRequest[requestId].docLang]==true, "You are not fluent in docLang ");
+        require(isFluent[msg.sender][findRequest[requestId].langNeeded]==true, "You are not fluent in langNeeded");
         _;
 
     }
 
     modifier onlyNewValidator(uint requestId){
-        require(hasValidated[msg.sender][requestId]==false );
-        require(hasDenied[msg.sender][requestId]==false );
-        _;
+        require(hasWorked[msg.sender][requestId]==false, "You already worked on the Request");
+     _;
     }
 }
