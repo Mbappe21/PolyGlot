@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-contract Twelve{
+contract Thirteen{
 
     address payable owner;
     address nullAddress;
@@ -148,10 +148,10 @@ contract Twelve{
         }
     }
 
-    function recollectFunds(uint requestId) external {
+    function recollectFunds(uint requestId) external hasNotCollected(requestId){
         require(findRequest[requestId].stage==5, "This function is not available");
         require(findRequest[requestId].client==msg.sender,"This is not your Request");
-        require(hasCollected[msg.sender][requestId]==false, "You have already used this function");
+
 
         hasCollected[msg.sender][requestId]=true ;
         uint amount=findRequest[requestId].amount;
@@ -161,31 +161,33 @@ contract Twelve{
         emit RequestClosed(requestId);
     }
 
-    function getPaidAfterApproval (uint requestId) external {
+    function getPaidAfterApproval (uint requestId) external hasNotCollected(requestId){
         require(findRequest[requestId].stage==4, "This function is not available");
         require(hasApproved[msg.sender][requestId]==true, "You have not validated this request" );
-        findRequest[requestId].stage=6;
+
         
+        hasCollected[msg.sender][requestId]=true ;
         address payable validator=payable(msg.sender);
 
         (bool sent1, ) =validator.call{value:2500000000000000}("");
         require(sent1, "Failed to pay validating Validator");
     }
 
-    function getPaidAfterDenial (uint requestId)external{
+    function getPaidAfterDenial (uint requestId)external hasNotCollected(requestId){
         require(findRequest[requestId].stage==5, "This function is not available");
         require(hasDenied[msg.sender][requestId]==true, "You have not denied this request" );
 
-        findRequest[requestId].stage=6;
+        hasCollected[msg.sender][requestId]=true ;
         address payable validator=payable(msg.sender);
         (bool sent1, ) =validator.call{value:2500000000000000}("");
         require(sent1, "Failed to pay validating Validator");
     }
 
-    function getPaidTranslator(uint requestId) external{
+    function getPaidTranslator(uint requestId) external hasNotCollected(requestId) {
         require(findRequest[requestId].stage==4, "This function is not available");
         require(findRequest[requestId].translator==msg.sender, "You have not worked on this request");
 
+        hasCollected[msg.sender][requestId]=true ;
         (bool sent3, )=payable(msg.sender).call{value:2500000000000000}("");
         require(sent3, "Failed to pat translator");
     }
@@ -232,8 +234,8 @@ contract Twelve{
         _;
     }
 
-    modifier onlyNewValidator(uint requestId){
-        require(hasWorked[msg.sender][requestId]==false, "You already worked on the Request");
+    modifier hasNotCollected(uint requestId){
+        require(hasCollected[msg.sender][requestId]==false, "You have already used this function");
      _;
     }
 
