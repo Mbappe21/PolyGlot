@@ -1,6 +1,8 @@
 import React from 'react';
 import Card from '../../component/card';
 import Nav from '../../component/nav';
+import Link from 'next/link';
+
 
 const Index = () => {
     const data = {
@@ -10,13 +12,26 @@ const Index = () => {
 
     return (
         <div>
-            <div className='bg-blue-900 px-8'>
+            <div className='bg-blue-900 px-8 mb-3'>
                 <Nav />
+                <div className="flex justify-center my-2 text-black p-2 rounded-lg border bg-white">
+                    <ul className="flex justify-center gap-2">
+                        <li className="mx-4">
+                            <Link href="/dashboard/request">Clients requests</Link>
+                        </li>
+                        <li className="mx-4">
+                            <a href="">Documentation</a>
+                        </li>
+                        <li className="mx-4">
+                            <a href="">Request for translation</a>
+                        </li>
+                    </ul>                
+                </div> 
             </div>
             
 
             <div>
-                <Card data={data} />
+                
             </div>
 
         </div>
