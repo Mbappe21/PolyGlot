@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
-contract Fourteen{
+contract Seventeen{
 
     address payable owner;
     address nullAddress;
@@ -13,14 +13,15 @@ contract Fourteen{
     uint voteId;
 
     mapping(address=>Translator) public findTranslator;
-    mapping(address=> PendingTranslator) findPendingTranslator;
+    mapping(address=> PendingTranslator) public findPendingTranslator;
     mapping(address=>Member) public findMember;
     mapping(uint=>Request) public findRequest;
-    mapping(address=>mapping(uint=>bool)) hasWorked;
-    mapping(address=>mapping(uint=>bool)) hasApproved;
-    mapping(address=>mapping(uint=>bool)) hasDenied;
-    mapping(address=>mapping(uint=>bool)) hasCollected;
-    mapping(uint=>Vote)findVote;
+    mapping(uint=>Vote) public findVote;
+    mapping(address=>mapping(uint=>bool)) public hasWorked;
+    mapping(address=>mapping(uint=>bool)) public hasApproved;
+    mapping(address=>mapping(uint=>bool)) public hasDenied;
+    mapping(address=>mapping(uint=>bool)) public hasCollected;
+    
 
 
     struct Translator{
@@ -49,6 +50,7 @@ contract Fourteen{
         Translator translator;
         uint yes;
         uint no;
+        bool completed;
     }
 
     struct Member{
@@ -74,30 +76,28 @@ contract Fourteen{
         uint stage;
     }
 
-        event NewTranslationRequest(Request request);
-        event TranslatorAcceptedRequest(Request request);
-        event TranslationSubmitted(Request request);
-        event TranslationApproved(Request request);
-        event TranslationDenied(Request request);
-        event RequestClosed(Request request);
-        event NewPendingTranslator(PendingTranslator translator);
-        event NewTranslator(Translator translator);
-        event NewApplicationForValidator(Translator translator);
+        event NewTranslationRequest(bool english, bool french, bool lingala);
+        event TranslatorAcceptedRequest(uint requestId, address indexed translator);
+        event TranslationSubmitted(uint requestId);
+        event TranslationApproved(uint requestId, address indexed Validator);
+        event TranslationDenied(uint requestId, address indexed Validator);
+        event RequestClosed(uint requestId);
+        event NewPendingTranslator(address indexed translator);
+        event NewTranslator(address indexed translator);
+        event NewApplicationForValidator(address indexed translator);
 
     constructor() payable{
         owner=payable(msg.sender);
     }
 
 
-    function applyForTranslatorRole(bool english, bool french, bool lingala) external returns(uint){
+    function applyForTranslatorRole(bool english, bool french, bool lingala) external {
         require(findPendingTranslator[msg.sender].pendingTranslatorId==0);
         nOfPendingTranslators+=1;
         PendingTranslator memory newPendingtranslator;
         newPendingtranslator= PendingTranslator(msg.sender, nOfPendingTranslators, english, french, lingala, 0,0,0);
         findPendingTranslator[msg.sender]=newPendingtranslator;
-        emit NewPendingTranslator(newPendingtranslator);
-
-        return nOfPendingTranslators;
+        emit NewPendingTranslator(msg.sender);
     }
 
     function voteTranslator(address pendingTrans, bool vote) external onlyValidator{
@@ -121,35 +121,34 @@ contract Fourteen{
         Translator memory newTranslator;
         newTranslator=Translator(addr, nOfTranslators, pendingTranslator.english, pendingTranslator.french, pendingTranslator.lingala, 0, false);
         findTranslator[addr]=newTranslator;
-        emit NewTranslator(newTranslator);
+        emit NewTranslator(addr);
     }
 
-    function applyForValidatorRole() external onlyTranslator returns(uint){
+    function applyForValidatorRole() external onlyTranslator {
         require(findTranslator[msg.sender].validator==false, "Role already granted");
         require(findTranslator[msg.sender].nOfRequests>4, "You don't have enough Requests");
 
         voteId++;
         Vote memory newVote;
-        newVote=Vote(voteId,findTranslator[msg.sender], 0, 0);
-        emit NewApplicationForValidator(findTranslator[msg.sender]);
-        return voteId;
+        newVote=Vote(voteId,findTranslator[msg.sender], 0, 0, false);
+        emit NewApplicationForValidator(msg.sender);
     }
 
-    function voteValidator(address translator, uint _voteId, bool vote) external onlyValidator{
-        require(findTranslator[translator].translatorId==0, "Role already granted");
+    function voteValidator(uint _voteId, bool vote) external onlyValidator{
+        require(findVote[_voteId].completed==false, "Vote has been completed");
         
         if(vote==true){
             findVote[_voteId].yes++;
             if(findVote[_voteId].yes >2){
-                addValidator(translator);
+                addValidator(_voteId);
             }
         }else{
             findVote[_voteId].no++;
         }
     }
 
-    function addValidator(address translator) private{
-        findTranslator[translator].validator=true;
+    function addValidator(uint _voteId) private{
+        findTranslator[findVote[_voteId].translator.translator].validator=true;
     }
 
     function becomeMember(address addr, bool english, bool french, bool lingala) external payable{
@@ -171,7 +170,7 @@ contract Fourteen{
         newRequest=Request(nOfRequests, msg.value, description, msg.sender,nullAddress, english, french, lingala, false, 0, 0, 1);
         findRequest[nOfRequests]=newRequest;
 
-        emit NewTranslationRequest(newRequest);
+        emit NewTranslationRequest(english, french, lingala);
     }
 
     function giveTestTranslation(address pendingTrans, string calldata description, bool english, bool french, bool lingala) external onlyValidator{
@@ -187,7 +186,7 @@ contract Fourteen{
         findRequest[requestId].accepted=true;
         findRequest[requestId].translator=msg.sender;
         findRequest[requestId].stage=2;
-         emit TranslatorAcceptedRequest(findRequest[requestId]);
+         emit TranslatorAcceptedRequest(requestId, msg.sender);
     }
 
     function submitTranslation(uint requestId) external {
@@ -195,7 +194,7 @@ contract Fourteen{
         require(findRequest[requestId].stage==2, "This function is not available");
  
             findRequest[requestId].stage=3;
-            emit TranslationSubmitted(findRequest[requestId]);
+            emit TranslationSubmitted(requestId);
     }
 
     function ApproveTranslation(uint requestId) external onlyValidator {
@@ -203,11 +202,11 @@ contract Fourteen{
         
             hasApproved[msg.sender][requestId]=true;
             findRequest[requestId].approvals+=1;
-            emit TranslationApproved(findRequest[requestId]);
+            emit TranslationApproved(requestId, msg.sender);
         
             if(findRequest[requestId].approvals>1){ //Chaneg for test
                 findRequest[requestId].stage=4;
-                emit RequestClosed(findRequest[requestId]);
+                emit RequestClosed(requestId);
             }
     }
 
@@ -216,11 +215,11 @@ contract Fourteen{
 
         hasDenied[msg.sender][requestId]=true;
         findRequest[requestId].denials+=1;
-       emit TranslationDenied(findRequest[requestId]);
+       emit TranslationDenied(requestId, msg.sender);
     
         if(findRequest[requestId].denials>1){ //Chaneg for test
             findRequest[requestId].stage=5;
-            emit RequestClosed(findRequest[requestId]);
+            emit RequestClosed(requestId);
         }
     }
 
@@ -233,7 +232,7 @@ contract Fourteen{
         (bool sent, ) = payable(msg.sender).call{value:amount}("");
         require(sent, "Failed to send back ETH");
         
-        emit RequestClosed(findRequest[requestId]);
+        emit RequestClosed(requestId);
     }
 
     function collectRequest(uint requestId) external hasNotCollected(requestId){
@@ -274,10 +273,10 @@ contract Fourteen{
 
     function deposit() external payable onlyOwner{}
 
-    function withdraw(uint amount) external onlyOwner{
-        require(amount<address(this).balance, "Not enough ETH");
+    function withdraw() external onlyOwner{
+        uint amount1=address(this).balance;
 
-        (bool success2, )= owner.call{value: amount}("");
+        (bool success2, )= owner.call{value: amount1}("");
         require(success2, "Failed to withdraw ETH" );
     }
   
@@ -298,21 +297,30 @@ contract Fourteen{
         findRequest[requestId].denials=denials;
     }
 
-    function changeRole(uint id, uint n, bool validator) public returns(string memory){
+    function changeRole(uint id, uint n, bool validator) public {
         findTranslator[msg.sender].translator=msg.sender;
         findTranslator[msg.sender].translatorId=id;
         findTranslator[msg.sender].nOfRequests=n;
         findTranslator[msg.sender].validator=validator;
-        return "Well done mate";
+        
     }
 
-
-    function changePendingRole(uint id, uint yes, uint no) public returns (string memory){
+    function changeVotes(uint id, uint yes, uint no, uint n, bool finish) public{
         findVote[voteId].voteId=id;
         findVote[voteId].yes=yes;
         findVote[voteId].no=no;
-        findVote[voteId].translator=findTranslator[msg.sender];
-        return "Good luck mate";
+        findVote[voteId].translator.translator=msg.sender;
+        findVote[voteId].completed= finish;
+        findTranslator[msg.sender].nOfRequests=n;
+    }
+
+
+    function changePendingRole(uint id, uint yes, uint no, uint n) public {
+        findPendingTranslator[msg.sender].pendingTranslatorId=id;
+        findPendingTranslator[msg.sender].denials=no;
+        findPendingTranslator[msg.sender].approvals=yes;
+       findPendingTranslator[msg.sender].translator=msg.sender;
+        findPendingTranslator[msg.sender].nOfRequests=n;
     }
 
     modifier onlyOwner() {
