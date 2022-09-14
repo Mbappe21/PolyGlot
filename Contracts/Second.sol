@@ -228,7 +228,7 @@ contract Seventeen{
             emit TranslationSubmitted(requestId);
         
 
-        IPUSHCommInterface(0x87da9Af1899ad477C67FeA31ce89c1d2435c77DC).sendNotification(
+        IPUSHCommInterface(0x87da9Af1899ad477C67FeA31ce89c1d2435c77DC).sendNotification( //Careful it is Ethereum!!!
         address(this), // from channel - once contract is deployed, go back and add the contract address as delegate for your channel
         address(this), // to recipient, put address(this) in case you want Broadcast or Subset. For Targetted put the address to which you want to send
         bytes(
