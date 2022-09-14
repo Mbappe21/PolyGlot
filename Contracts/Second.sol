@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
+
+interface IPUSHCommInterface {
+    function sendNotification(address _channel, address _recipient, bytes calldata _identity) external;
+}
+
 contract Seventeen{
 
     address payable owner;
@@ -43,6 +48,7 @@ contract Seventeen{
         uint nOfRequests;
         uint approvals;
         uint denials;
+        bool rejected;
     }
 
     struct Vote{
@@ -50,7 +56,7 @@ contract Seventeen{
         Translator translator;
         uint yes;
         uint no;
-        bool completed;
+        bool rejected;
     }
 
     struct Member{
@@ -95,8 +101,26 @@ contract Seventeen{
         require(findPendingTranslator[msg.sender].pendingTranslatorId==0);
         nOfPendingTranslators+=1;
         PendingTranslator memory newPendingtranslator;
-        newPendingtranslator= PendingTranslator(msg.sender, nOfPendingTranslators, english, french, lingala, 0,0,0);
+        newPendingtranslator= PendingTranslator(msg.sender, nOfPendingTranslators, english, french, lingala, 0,0,0, false);
         findPendingTranslator[msg.sender]=newPendingtranslator;
+
+        IPUSHCommInterface(0x87da9Af1899ad477C67FeA31ce89c1d2435c77DC).sendNotification(
+        address(this), // from channel - once contract is deployed, go back and add the contract address as delegate for your channel
+        address(this), // to recipient, put address(this) in case you want Broadcast or Subset. For Targetted put the address to which you want to send
+        bytes(
+            string(abi.encodePacked(
+                "0", // this is notification identity
+                "+", // segregator
+                "3", // this is payload type: (1, 3 or 4) = (Broadcast, targetted or subset)
+                "+", // segregator
+                "New applicant for translator role", // this is notificaiton title
+                "+", // segregator
+                "The more the better" // notification body
+                )
+            )
+        )
+);
+
         emit NewPendingTranslator(msg.sender);
     }
 
@@ -111,6 +135,9 @@ contract Seventeen{
             }
         }else{
             findPendingTranslator[pendingTrans].denials+=1;
+            if(findPendingTranslator[pendingTrans].denials>2){
+                findPendingTranslator[pendingTrans].rejected=true;
+            }
         }
     }
 
@@ -135,7 +162,7 @@ contract Seventeen{
     }
 
     function voteValidator(uint _voteId, bool vote) external onlyValidator{
-        require(findVote[_voteId].completed==false, "Vote has been completed");
+        require(findVote[_voteId].rejected==false, "Vote has already been rejected");
         
         if(vote==true){
             findVote[_voteId].yes++;
@@ -144,6 +171,9 @@ contract Seventeen{
             }
         }else{
             findVote[_voteId].no++;
+            if(findVote[_voteId].no >2){
+                findVote[_voteId].rejected=true;
+            }
         }
     }
 
@@ -171,6 +201,7 @@ contract Seventeen{
         findRequest[nOfRequests]=newRequest;
 
         emit NewTranslationRequest(english, french, lingala);
+
     }
 
     function giveTestTranslation(address pendingTrans, string calldata description, bool english, bool french, bool lingala) external onlyValidator{
@@ -189,12 +220,30 @@ contract Seventeen{
          emit TranslatorAcceptedRequest(requestId, msg.sender);
     }
 
-    function submitTranslation(uint requestId) external {
+    function submitTranslation(uint requestId, string calldata _IPFS) external {
         require(findRequest[requestId].translator==msg.sender, "This is not your request");
         require(findRequest[requestId].stage==2, "This function is not available");
  
             findRequest[requestId].stage=3;
             emit TranslationSubmitted(requestId);
+        
+
+        IPUSHCommInterface(0x87da9Af1899ad477C67FeA31ce89c1d2435c77DC).sendNotification(
+        address(this), // from channel - once contract is deployed, go back and add the contract address as delegate for your channel
+        address(this), // to recipient, put address(this) in case you want Broadcast or Subset. For Targetted put the address to which you want to send
+        bytes(
+            string(abi.encodePacked(
+                "3", // this is notification identity
+                "+", // segregator
+                "3", // this is payload type: (1, 3 or 4) = (Broadcast, targetted or subset)
+                "+", // segregator
+                "Translation submitted", // this is notificaiton title
+                "+", // segregator
+                _IPFS // notification body
+                )
+            )
+        )
+);
     }
 
     function ApproveTranslation(uint requestId) external onlyValidator {
@@ -310,7 +359,7 @@ contract Seventeen{
         findVote[voteId].yes=yes;
         findVote[voteId].no=no;
         findVote[voteId].translator.translator=msg.sender;
-        findVote[voteId].completed= finish;
+        findVote[voteId].rejected= finish;
         findTranslator[msg.sender].nOfRequests=n;
     }
 
