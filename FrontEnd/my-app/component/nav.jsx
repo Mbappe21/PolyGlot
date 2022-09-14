@@ -1,5 +1,6 @@
 import React from 'react';
-import Image from 'next/image'
+import Image from 'next/image';
+import Link from 'next/link';
 import * as Io from "react-icons/io5";
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';

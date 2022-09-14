@@ -17,13 +17,13 @@ const Index = () => {
                 <div className="flex justify-center my-2 text-black p-2 rounded-lg border bg-white">
                     <ul className="flex justify-center gap-2">
                         <li className="mx-4">
-                            <Link href="/dashboard/request">Clients requests</Link>
+                            <Link href="/requests/list/">Clients requests</Link>
                         </li>
                         <li className="mx-4">
                             <a href="">Documentation</a>
                         </li>
                         <li className="mx-4">
-                            <a href="">Request for translation</a>
+                            <Link href="/requests/translation/">Request for translation</Link>
                         </li>
                     </ul>                
                 </div> 
