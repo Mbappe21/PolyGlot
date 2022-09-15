@@ -17,6 +17,9 @@ const Index = () => {
                 <div className="flex justify-center my-2 text-black p-2 rounded-lg border bg-white">
                     <ul className="flex justify-center gap-2">
                         <li className="mx-4">
+                            <Link href="/dashboard/">Dashboard</Link>
+                        </li>
+                        <li className="mx-4">
                             <Link href="/requests/list/">Clients requests</Link>
                         </li>
                         <li className="mx-4">
@@ -31,7 +34,7 @@ const Index = () => {
             
 
             <div>
-            <div className="w-full h-full text-black p-5 overflow-auto">
+            <div className="w-full h-full text-black px-32 overflow-auto">
             <div className="mb-7">
                 <h1 className="text-4xl text-center">Protect Earth</h1>
             </div>
