@@ -6,35 +6,32 @@ interface IPUSHCommInterface {
     function sendNotification(address _channel, address _recipient, bytes calldata _identity) external;
 }
 
-contract Seventeen{
+contract PloygonTest{
 
     address payable owner;
     address nullAddress;
     uint nOfValidators;
     uint nOfTranslators;
-    uint nOfMembers;
     uint nOfRequests; 
     uint nOfPendingTranslators;
     uint voteId;
+    uint [] languages= [1,2,3];
 
     mapping(address=>Translator) public findTranslator;
     mapping(address=> PendingTranslator) public findPendingTranslator;
-    mapping(address=>Member) public findMember;
     mapping(uint=>Request) public findRequest;
     mapping(uint=>Vote) public findVote;
     mapping(address=>mapping(uint=>bool)) public hasWorked;
     mapping(address=>mapping(uint=>bool)) public hasApproved;
     mapping(address=>mapping(uint=>bool)) public hasDenied;
     mapping(address=>mapping(uint=>bool)) public hasCollected;
-    
+    mapping(address=>mapping(uint=>bool)) public isFluent;
 
 
     struct Translator{
         address translator;
         uint translatorId;
-        bool english;
-        bool french;
-        bool lingala;
+        uint nOfLanguages;
         uint nOfRequests;
         bool validator;
     }
@@ -42,9 +39,8 @@ contract Seventeen{
     struct PendingTranslator{
         address translator;
         uint pendingTranslatorId;
-        bool english;
-        bool french;
-        bool lingala;
+        uint lang1;
+        uint lang2;
         uint nOfRequests;
         uint approvals;
         uint denials;
@@ -59,59 +55,51 @@ contract Seventeen{
         bool rejected;
     }
 
-    struct Member{
-        address member;
-        uint memberId;
-        bool english;
-        bool french;
-        bool lingala;
-    }
-
     struct Request{
         uint requestId;
         uint amount;
         string description;
         address client;
         address translator;
-        bool english;
-        bool french;
-        bool lingala;
+        uint docLang;
+        uint langNeeded;
         bool accepted;
         uint approvals;
         uint denials;
         uint stage;
     }
 
-        event NewTranslationRequest(bool english, bool french, bool lingala);
+        event NewTranslationRequest(uint requestId, uint docLang, uint langNeeded);
         event TranslatorAcceptedRequest(uint requestId, address indexed translator);
         event TranslationSubmitted(uint requestId);
         event TranslationApproved(uint requestId, address indexed Validator);
         event TranslationDenied(uint requestId, address indexed Validator);
         event RequestClosed(uint requestId);
-        event NewPendingTranslator(address indexed translator);
+        event NewPendingTranslator(address indexed translator, uint lang1, uint lang2);
         event NewTranslator(address indexed translator);
         event NewApplicationForValidator(address indexed translator);
+        event NewLanguage(uint languageId, string language);
 
     constructor() payable{
         owner=payable(msg.sender);
     }
 
 
-    function applyForTranslatorRole(bool english, bool french, bool lingala) external {
+    function applyForTranslatorRole(uint lang1, uint lang2) external {
         require(findPendingTranslator[msg.sender].pendingTranslatorId==0);
         nOfPendingTranslators+=1;
         PendingTranslator memory newPendingtranslator;
-        newPendingtranslator= PendingTranslator(msg.sender, nOfPendingTranslators, english, french, lingala, 0,0,0, false);
+        newPendingtranslator= PendingTranslator(msg.sender, nOfPendingTranslators, lang1, lang2, 0,0,0, false);
         findPendingTranslator[msg.sender]=newPendingtranslator;
 
-        IPUSHCommInterface(0x87da9Af1899ad477C67FeA31ce89c1d2435c77DC).sendNotification(
-        address(this), // from channel - once contract is deployed, go back and add the contract address as delegate for your channel
+        IPUSHCommInterface(0xb3971BCef2D791bc4027BbfedFb47319A4AAaaAa).sendNotification( //Careful it is Polygon!!!
+        0x99F270c37478aDEFaaccCdCc173f86d96C267bdb, // from channel - once contract is deployed, go back and add the contract address as delegate for your channel
         address(this), // to recipient, put address(this) in case you want Broadcast or Subset. For Targetted put the address to which you want to send
         bytes(
             string(abi.encodePacked(
                 "0", // this is notification identity
                 "+", // segregator
-                "3", // this is payload type: (1, 3 or 4) = (Broadcast, targetted or subset)
+                "1", // this is payload type: (1, 3 or 4) = (Broadcast, targetted or subset)
                 "+", // segregator
                 "New applicant for translator role", // this is notificaiton title
                 "+", // segregator
@@ -121,7 +109,7 @@ contract Seventeen{
         )
 );
 
-        emit NewPendingTranslator(msg.sender);
+        emit NewPendingTranslator(msg.sender, lang1, lang2);
     }
 
     function voteTranslator(address pendingTrans, bool vote) external onlyValidator{
@@ -142,12 +130,14 @@ contract Seventeen{
     }
 
     function addTranslator(address addr) private {
-        PendingTranslator memory pendingTranslator=findPendingTranslator[addr];
-
         nOfTranslators+=1;
         Translator memory newTranslator;
-        newTranslator=Translator(addr, nOfTranslators, pendingTranslator.english, pendingTranslator.french, pendingTranslator.lingala, 0, false);
+        newTranslator=Translator(addr, nOfTranslators, 2, 0, false);
         findTranslator[addr]=newTranslator;
+
+        isFluent[addr][findPendingTranslator[addr].lang1]=true;
+        isFluent[addr][findPendingTranslator[addr].lang2]=true;
+    
         emit NewTranslator(addr);
     }
 
@@ -181,35 +171,26 @@ contract Seventeen{
         findTranslator[findVote[_voteId].translator.translator].validator=true;
     }
 
-    function becomeMember(address addr, bool english, bool french, bool lingala) external payable{
-        require(findMember[addr].memberId==0, "Role already granted");
-        require(msg.value==7000000000000000, "You must deposit 0.007ETH");
-        nOfMembers+=1;
-        Member memory newMember;
-        newMember=Member(addr, nOfMembers, english, french, lingala);
-        findMember[addr]=newMember;
-    }
 
-
-    function requestTranslation(string calldata description, bool english, bool french, bool lingala) external payable{
+    function requestTranslation(string calldata _IPFS, uint docLang, uint langNeeded) external payable{
         require(msg.value>7000000000000000, "You must deposit at least 0.007ETH");
 
         nOfRequests+=1;
         Request memory newRequest;
 
-        newRequest=Request(nOfRequests, msg.value, description, msg.sender,nullAddress, english, french, lingala, false, 0, 0, 1);
+        newRequest=Request(nOfRequests, msg.value, _IPFS, msg.sender,nullAddress, docLang, langNeeded, false, 0, 0, 1);
         findRequest[nOfRequests]=newRequest;
 
-        emit NewTranslationRequest(english, french, lingala);
+        emit NewTranslationRequest(nOfRequests, docLang, langNeeded);
 
     }
 
-    function giveTestTranslation(address pendingTrans, string calldata description, bool english, bool french, bool lingala) external onlyValidator{
-        require(findMember[pendingTrans].memberId>0, "Not a pending Translator");
+    function giveTestTranslation(address pendingTrans, string calldata _IPFS, uint docLang, uint langNeeded) external onlyValidator{
+        require(findPendingTranslator[pendingTrans].pendingTranslatorId>0, "Not a pending translator");
         nOfRequests+=1;
         Request memory newTest;
 
-        newTest=Request(nOfRequests, 0, description, nullAddress, pendingTrans, english, french, lingala, true, 0, 0, 2);
+        newTest=Request(nOfRequests, 0, _IPFS, nullAddress, pendingTrans, docLang, langNeeded, true, 0, 0, 2);
         findRequest[nOfRequests]=newTest;
     }
 
@@ -217,7 +198,7 @@ contract Seventeen{
         findRequest[requestId].accepted=true;
         findRequest[requestId].translator=msg.sender;
         findRequest[requestId].stage=2;
-         emit TranslatorAcceptedRequest(requestId, msg.sender);
+        emit TranslatorAcceptedRequest(requestId, msg.sender);
     }
 
     function submitTranslation(uint requestId, string calldata _IPFS) external {
@@ -228,22 +209,22 @@ contract Seventeen{
             emit TranslationSubmitted(requestId);
         
 
-        IPUSHCommInterface(0x87da9Af1899ad477C67FeA31ce89c1d2435c77DC).sendNotification( //Careful it is Ethereum!!!
-        address(this), // from channel - once contract is deployed, go back and add the contract address as delegate for your channel
+        IPUSHCommInterface(0xb3971BCef2D791bc4027BbfedFb47319A4AAaaAa).sendNotification( //Careful it is Polygon!!!
+        0x99F270c37478aDEFaaccCdCc173f86d96C267bdb, // from channel - once contract is deployed, go back and add the contract address as delegate for your channel
         address(this), // to recipient, put address(this) in case you want Broadcast or Subset. For Targetted put the address to which you want to send
         bytes(
             string(abi.encodePacked(
-                "3", // this is notification identity
+                "0", // this is notification identity
                 "+", // segregator
-                "3", // this is payload type: (1, 3 or 4) = (Broadcast, targetted or subset)
+                "1", // this is payload type: (1, 3 or 4) = (Broadcast, targetted or subset)
                 "+", // segregator
-                "Translation submitted", // this is notificaiton title
+                "New applicant for translator role", // this is notificaiton title
                 "+", // segregator
                 _IPFS // notification body
                 )
             )
-        )
-);
+            )
+        );
     }
 
     function ApproveTranslation(uint requestId) external onlyValidator {
@@ -281,11 +262,11 @@ contract Seventeen{
         (bool sent, ) = payable(msg.sender).call{value:amount}("");
         require(sent, "Failed to send back ETH");
         
-        emit RequestClosed(requestId);
     }
 
     function collectRequest(uint requestId) external hasNotCollected(requestId){
         require(findRequest[requestId].stage==4, "This function is not available");
+        require(findRequest[requestId].translator==msg.sender, "You have not worked on this request");
 
         hasCollected[msg.sender][requestId]=true;
         findPendingTranslator[findRequest[requestId].translator].nOfRequests+=1;
@@ -303,7 +284,7 @@ contract Seventeen{
 
     function getPaidAfterDenial (uint requestId)external hasNotCollected(requestId){
         require(findRequest[requestId].stage==5, "This function is not available");
-        require(hasDenied[msg.sender][requestId]==true, "You have not denied this request" );
+        require(hasDenied[msg.sender][requestId]==true, "You have not denied this request");
 
         hasCollected[msg.sender][requestId]=true ;
         address payable validator=payable(msg.sender);
@@ -318,6 +299,20 @@ contract Seventeen{
         hasCollected[msg.sender][requestId]=true ;
         (bool sent3, )=payable(msg.sender).call{value:2500000000000000}("");
         require(sent3, "Failed to pat translator");
+    }
+
+    function addLanguage(string memory language) external onlyOwner{
+
+        languages.push(languages.length+1);
+        emit NewLanguage(languages.length+1, language);
+    }
+
+    function addFluency(address addr, uint languageId) external onlyOwner{
+        require(findTranslator[addr].translatorId>0, "Address is not a translator");
+        require(isFluent[addr][languageId]==false, "Already fluent");
+
+        isFluent[addr][languageId]=true;
+        findTranslator[addr].nOfLanguages++;
     }
 
     function deposit() external payable onlyOwner{}
@@ -339,9 +334,8 @@ contract Seventeen{
         findRequest[requestId].client=msg.sender;
         findRequest[requestId].translator=msg.sender;
         findRequest[requestId].amount=3000000;
-        findRequest[requestId].english=true;
-        findRequest[requestId].french=true;
-        findRequest[requestId].lingala=true;
+        findRequest[requestId].docLang=1;
+        findRequest[requestId].langNeeded=2;
         findRequest[requestId].approvals=approvals;
         findRequest[requestId].denials=denials;
     }
@@ -368,7 +362,7 @@ contract Seventeen{
         findPendingTranslator[msg.sender].pendingTranslatorId=id;
         findPendingTranslator[msg.sender].denials=no;
         findPendingTranslator[msg.sender].approvals=yes;
-       findPendingTranslator[msg.sender].translator=msg.sender;
+        findPendingTranslator[msg.sender].translator=msg.sender;
         findPendingTranslator[msg.sender].nOfRequests=n;
     }
 
