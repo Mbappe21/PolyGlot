@@ -6,7 +6,7 @@ interface IPUSHCommInterface {
     function sendNotification(address _channel, address _recipient, bytes calldata _identity) external;
 }
 
-contract PloygonTest{
+contract Eighteen{
 
     address payable owner;
     address nullAddress;
@@ -15,6 +15,7 @@ contract PloygonTest{
     uint nOfRequests; 
     uint nOfPendingTranslators;
     uint voteId;
+    uint fee=2500000000000000;
     uint [] languages= [1,2,3];
 
     mapping(address=>Translator) public findTranslator;
@@ -173,12 +174,12 @@ contract PloygonTest{
 
 
     function requestTranslation(string calldata _IPFS, uint docLang, uint langNeeded) external payable{
-        require(msg.value>7000000000000000, "You must deposit at least 0.007ETH");
+        require(msg.value>10000000000000000, "You must deposit at least 0.01 Matic");
 
         nOfRequests+=1;
         Request memory newRequest;
 
-        newRequest=Request(nOfRequests, msg.value, _IPFS, msg.sender,nullAddress, docLang, langNeeded, false, 0, 0, 1);
+        newRequest=Request(nOfRequests, msg.value-fee, _IPFS, msg.sender,nullAddress, docLang, langNeeded, false, 0, 0, 1);
         findRequest[nOfRequests]=newRequest;
 
         emit NewTranslationRequest(nOfRequests, docLang, langNeeded);
@@ -260,7 +261,7 @@ contract PloygonTest{
         hasCollected[msg.sender][requestId]=true ;
         uint amount=findRequest[requestId].amount;
         (bool sent, ) = payable(msg.sender).call{value:amount}("");
-        require(sent, "Failed to send back ETH");
+        require(sent, "Failed to send back funds");
         
     }
 
@@ -278,7 +279,7 @@ contract PloygonTest{
 
         hasCollected[msg.sender][requestId]=true ;
         address payable validator=payable(msg.sender);
-        (bool sent1, ) =validator.call{value:2500000000000000}("");
+        (bool sent1, ) =validator.call{value:fee}("");
         require(sent1, "Failed to pay validating Validator");
     }
 
@@ -288,7 +289,7 @@ contract PloygonTest{
 
         hasCollected[msg.sender][requestId]=true ;
         address payable validator=payable(msg.sender);
-        (bool sent1, ) =validator.call{value:2500000000000000}("");
+        (bool sent1, ) =validator.call{value:fee}("");
         require(sent1, "Failed to pay validating Validator");
     }
 
@@ -297,14 +298,14 @@ contract PloygonTest{
         require(findRequest[requestId].translator==msg.sender, "You have not worked on this request");
 
         hasCollected[msg.sender][requestId]=true ;
-        (bool sent3, )=payable(msg.sender).call{value:2500000000000000}("");
+        (bool sent3, )=payable(msg.sender).call{value:fee}("");
         require(sent3, "Failed to pat translator");
     }
 
     function addLanguage(string memory language) external onlyOwner{
 
         languages.push(languages.length+1);
-        emit NewLanguage(languages.length+1, language);
+        emit NewLanguage(languages.length, language);
     }
 
     function addFluency(address addr, uint languageId) external onlyOwner{
@@ -321,7 +322,7 @@ contract PloygonTest{
         uint amount1=address(this).balance;
 
         (bool success2, )= owner.call{value: amount1}("");
-        require(success2, "Failed to withdraw ETH" );
+        require(success2, "Failed to withdraw funds" );
     }
   
     function changeRequest(
@@ -340,30 +341,30 @@ contract PloygonTest{
         findRequest[requestId].denials=denials;
     }
 
-    function changeRole(uint id, uint n, bool validator) public {
-        findTranslator[msg.sender].translator=msg.sender;
-        findTranslator[msg.sender].translatorId=id;
-        findTranslator[msg.sender].nOfRequests=n;
-        findTranslator[msg.sender].validator=validator;
+    function changeRole(address addr, uint id, uint n, bool validator) public {
+        findTranslator[addr].translator=addr;
+        findTranslator[addr].translatorId=id;
+        findTranslator[addr].nOfRequests=n;
+        findTranslator[addr].validator=validator;
         
     }
 
-    function changeVotes(uint id, uint yes, uint no, uint n, bool finish) public{
+    function changeVotes(address addr, address translator, uint id, uint yes, uint no, uint n, bool finish) public{
         findVote[voteId].voteId=id;
         findVote[voteId].yes=yes;
         findVote[voteId].no=no;
-        findVote[voteId].translator.translator=msg.sender;
+        findVote[voteId].translator.translator=addr;
         findVote[voteId].rejected= finish;
-        findTranslator[msg.sender].nOfRequests=n;
+        findTranslator[translator].nOfRequests=n;
     }
 
 
-    function changePendingRole(uint id, uint yes, uint no, uint n) public {
-        findPendingTranslator[msg.sender].pendingTranslatorId=id;
-        findPendingTranslator[msg.sender].denials=no;
-        findPendingTranslator[msg.sender].approvals=yes;
-        findPendingTranslator[msg.sender].translator=msg.sender;
-        findPendingTranslator[msg.sender].nOfRequests=n;
+    function changePendingRole(address addr, uint id, uint yes, uint no, uint n) public {
+        findPendingTranslator[addr].pendingTranslatorId=id;
+        findPendingTranslator[addr].denials=no;
+        findPendingTranslator[addr].approvals=yes;
+        findPendingTranslator[addr].translator=addr;
+        findPendingTranslator[addr].nOfRequests=n;
     }
 
     modifier onlyOwner() {
