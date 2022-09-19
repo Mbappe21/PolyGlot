@@ -1,6 +1,3 @@
-import '../styles/globals.css'
-import Head from 'next/head';
-
 import '@rainbow-me/rainbowkit/styles.css';
 import {
   getDefaultWallets,
@@ -38,18 +35,14 @@ const wagmiClient = createClient({
 
 
 
-function MyApp({ Component, pageProps }) {
-  return (
-    <WagmiConfig client={wagmiClient}>
-      <RainbowKitProvider chains={chains}>
-        <Head>
-          <title>Polyglot</title>
-          <link rel="icon" href="/favicon.ico" />
-        </Head>
-       <Component {...pageProps} />
-      </RainbowKitProvider>
-    </WagmiConfig>
-  )
-}
+const Main = (props) => {
+    return (
+      <WagmiConfig client={wagmiClient}>
+        <RainbowKitProvider chains={chains}>
+          {props.children}
+        </RainbowKitProvider>
+      </WagmiConfig>
+    );
+  };
 
-export default MyApp
+  export default Main
