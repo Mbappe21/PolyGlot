@@ -6,7 +6,7 @@ interface IPUSHCommInterface {
     function sendNotification(address _channel, address _recipient, bytes calldata _identity) external;
 }
 
-contract Eighteen{
+contract Nineteen{
 
     address payable owner;
     address nullAddress;
@@ -17,6 +17,8 @@ contract Eighteen{
     uint voteId;
     uint fee=2500000000000000;
     uint [] languages= [1,2,3];
+    uint [] public pendingRequests=[0];
+    uint [] public completedRequests=[0];
 
     mapping(address=>Translator) public findTranslator;
     mapping(address=> PendingTranslator) public findPendingTranslator;
@@ -181,6 +183,7 @@ contract Eighteen{
 
         newRequest=Request(nOfRequests, msg.value-fee, _IPFS, msg.sender,nullAddress, docLang, langNeeded, false, 0, 0, 1);
         findRequest[nOfRequests]=newRequest;
+        pendingRequests.push(nOfRequests);
 
         emit NewTranslationRequest(nOfRequests, docLang, langNeeded);
 
@@ -196,6 +199,8 @@ contract Eighteen{
     }
 
     function acceptTranslation(uint requestId) external onlyTranslator{
+        require(findRequest[requestId].stage==1, "This function is not available");
+
         findRequest[requestId].accepted=true;
         findRequest[requestId].translator=msg.sender;
         findRequest[requestId].stage=2;
@@ -207,6 +212,7 @@ contract Eighteen{
         require(findRequest[requestId].stage==2, "This function is not available");
  
             findRequest[requestId].stage=3;
+            findRequest[requestId].description=_IPFS;
             emit TranslationSubmitted(requestId);
         
 
@@ -237,6 +243,8 @@ contract Eighteen{
         
             if(findRequest[requestId].approvals>1){ //Chaneg for test
                 findRequest[requestId].stage=4;
+                delete pendingRequests[requestId];
+                completedRequests.push(requestId);
                 emit RequestClosed(requestId);
             }
     }
@@ -250,6 +258,8 @@ contract Eighteen{
     
         if(findRequest[requestId].denials>1){ //Chaneg for test
             findRequest[requestId].stage=5;
+            delete pendingRequests[requestId];
+            completedRequests.push(requestId);
             emit RequestClosed(requestId);
         }
     }
@@ -316,7 +326,7 @@ contract Eighteen{
         findTranslator[addr].nOfLanguages++;
     }
 
-    function deposit() external payable onlyOwner{}
+    //function deposit() external payable onlyOwner{}
 
     function withdraw() external onlyOwner{
         uint amount1=address(this).balance;
@@ -335,13 +345,11 @@ contract Eighteen{
         findRequest[requestId].client=msg.sender;
         findRequest[requestId].translator=msg.sender;
         findRequest[requestId].amount=3000000;
-        findRequest[requestId].docLang=1;
-        findRequest[requestId].langNeeded=2;
         findRequest[requestId].approvals=approvals;
         findRequest[requestId].denials=denials;
     }
 
-    function changeRole(address addr, uint id, uint n, bool validator) public {
+    function changeRole(address addr, uint id, uint n, bool validator) external{
         findTranslator[addr].translator=addr;
         findTranslator[addr].translatorId=id;
         findTranslator[addr].nOfRequests=n;
@@ -349,17 +357,17 @@ contract Eighteen{
         
     }
 
-    function changeVotes(address addr, address translator, uint id, uint yes, uint no, uint n, bool finish) public{
+   /*function changeVotes(address addr, address translator, uint id, uint yes, uint no, uint n, bool finish) public{
         findVote[voteId].voteId=id;
         findVote[voteId].yes=yes;
         findVote[voteId].no=no;
         findVote[voteId].translator.translator=addr;
         findVote[voteId].rejected= finish;
         findTranslator[translator].nOfRequests=n;
-    }
+    }*/
 
 
-    function changePendingRole(address addr, uint id, uint yes, uint no, uint n) public {
+    function changePendingRole(address addr, uint id, uint yes, uint no, uint n) external {
         findPendingTranslator[addr].pendingTranslatorId=id;
         findPendingTranslator[addr].denials=no;
         findPendingTranslator[addr].approvals=yes;
