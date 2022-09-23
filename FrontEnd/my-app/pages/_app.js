@@ -18,7 +18,7 @@ import { publicProvider } from 'wagmi/providers/public';
 import { useRouter } from "next/router";
 
 const { chains, provider } = configureChains(
-  [chain.polygon, chain.polygonMumbai, chain.mainnet],
+  [chain.polygon, chain.polygonMumbai, chain.mainnet, chain.goerli, chain.rinkeby],
   [
     alchemyProvider({ apiKey: process.env.ALCHEMY_ID }),
     publicProvider()

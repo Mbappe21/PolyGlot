@@ -10,7 +10,7 @@ const Button = (props) => {
 
   return (
       <button className={"drop-shadow mx-4 px-6 py-1 hover:scale-105 "+bgColor+" text-white rounded-lg font-semibold mt-4"}>
-            {props.content}
+        {props.content}
       </button>
   )
 }

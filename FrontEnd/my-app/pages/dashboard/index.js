@@ -37,9 +37,9 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    <TableWithModal title="test with modal" headList={headList} lines={tableContent}/>
+                    {/* <TableWithModal title="test with modal" headList={headList} lines={tableContent}/> */}
 
-                    <TableLayout title="My transaltion asked" headList={headList} lines={tableContent} />
+                    {/* <TableLayout title="My transaltion asked" headList={headList} lines={tableContent} /> */}
 
                     <div className="mb-3">
                         <div className="flex justify-center gap-4">

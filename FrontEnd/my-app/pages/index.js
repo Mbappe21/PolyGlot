@@ -3,19 +3,25 @@ import { useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import MainLayout from '../components/mainLayout'
 import StartBtn from '../components/StartBtn'
+import { useUser } from '../hooks/useUser'
 
 export default function Home() {
 
   const { isConnected } = useAccount()
   const router = useRouter()
+  const { user } = useUser()
 
-  useEffect(() => {
+  useEffect(() =>{
     if(isConnected){
-      router.push("/dashboard/")
+      if(user?.isLoggedIn !== false){
+        router.push("/dashboard")
+      } else {
+        router.push("/api/login")
+      }
     }
-  }, [isConnected])
+  }, [isConnected, user?.isLoggedIn])
 
-  return ( !isConnected &&
+  return ( 
     <div>
       <main>
         <div className="relative w-screen h-screen bg-gradient-to-tl from-gray-400 to-blue-800  overflow-hidden">

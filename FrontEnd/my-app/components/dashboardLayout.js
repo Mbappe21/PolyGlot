@@ -10,14 +10,8 @@ const DashboardLayout = (props) => {
   const { isConnected } = useAccount()
   const router = useRouter()
 
-  useEffect(()=>{
-    if(!isConnected){
-      router.push('/')
-    }
-  }, [isConnected])
-
-  return ( isConnected && 
-    (
+  return ( 
+    
       <div className="bg-blue-900 px-8 mb-3">
         <MainLayout>
           <div className="bg-white">
@@ -25,7 +19,7 @@ const DashboardLayout = (props) => {
           </div>
         </MainLayout>
       </div>
-    )
+    
   )
 }
 
