@@ -1,95 +1,165 @@
-import BackToDashboardButton from "../../components/backDashboard"
-import Button from "../../components/button"
 import DashboardLayout from "../../components/dashboardLayout"
 import RequestHeaderLayout from "../../components/requestHeader"
+import Button from "../../components/button"
+import BackToDashboardButton from "../../components/backDashboard"
+import Modal from "../../components/modal"
+
+import { useContract, useSigner } from "wagmi";
+import { contractABI, ContractAddress } from "../../datas/constDatas";
+import { useState } from "react";
+import Card from "../../components/card"
+
+import { ethers } from "ethers"
+import IPFSUploadFile from "../../components/ipfsUploadField"
+
+
+async function retrieve (cid) {
+    const client = makeStorageClient()
+    const res = await client.get(cid)
+    console.log(`Got a response! [${res.status}] ${res.statusText}`)
+    if (!res.ok) {
+        throw new Error(`failed to get ${cid}`)
+    } else {
+        const files = await res.files(); 
+        for (const file of files) {
+        console.log(file);
+        }
+    }
+
+}
 
 
 const Translation = (props) => {
 
+    const { data: signer } = useSigner()
+
+    const [lang1, setLang1] = useState({value: '', valid: false})
+    const [lang2, setLang2] = useState({value: '', valid: false})
+    const [cid, setCID] = useState()
+    const [isSuccess, setIsSuccess] = useState(false)
+    const [hidden, setHidden] = useState(true)
+
+
+    const handleChange1 = (e) => {
+        const value = parseInt(e.target.value)
+        const valid = value ? true : false
+        setLang1({value: value, valid: valid})
+    }
+    
+    const handleChange2 = (e) => {
+        const value = parseInt(e.target.value)
+        const valid = value ? true : false
+        setLang2({value: value, valid: valid})
+    }    
+
+
+
+    const contract = useContract({
+        addressOrName: ContractAddress,
+        contractInterface: contractABI,
+        signerOrProvider: signer
+    })
+
+    const handleSubmit = (e) => {
+        e.preventDefault()
+        console.log(signer)
+        console.log(contract)
+        if(lang1.valid && lang2.valid && cid){
+            contract.requestTranslation(cid, lang1.value, lang2.value, {value: ethers.utils.parseEther("0.02")})
+            .then((val) =>{
+                console.log(val)
+                setIsSuccess(true)
+                setHidden(true)
+            })
+            .catch(err => {
+                console.log(err)
+                setIsSuccess(false)
+                setHidden(false)
+            })
+        } 
+    }
+
+
+
     return (
-      <DashboardLayout>
-        <div className="w-full h-full text-black p-5 overflow-auto">
-          <RequestHeaderLayout title="Request for translation">
-            Complete the form and submit your request for translation
-          </RequestHeaderLayout>
-            <div>
-              <form action="">
-                  <div className="grid grid-cols-2 mt-10 gap-6 mb-3 px-32">
-                      <div className="mb-1">
-                          <label htmlFor="" className="text-md">Theme</label>
-                          <div className="mb-2 flex">
-                              <input type="text" name="theme" className="border block w-full p-2 shadow-inner"
-                              placeholder="Topic of document to translate"
-                              />
-                              <button  className="bg-gray-200 px-5">Clear</button>
-                          </div>
-                      </div>
-                      
-                      <div className="mb-1">
-                          <label htmlFor="period" className="text-md">Period for translation</label>
-                          <div className="mb-2 flex">
-                              <input type="text" name="period" className="border block w-full p-2 shadow-inner"
-                              placeholder="Deadline given for translation"
-                              />
-                              <button className="bg-gray-200 px-5">Clear</button>
-                          </div>
-                      </div>
-                      <div className="mb-1">
-                          <label htmlFor="amount" className="text-md">Amount for the job</label>
-                          <div className="mb-2 flex">
-                              <input type="text" name="amount" className="border block w-full p-2 shadow-inner"
-                              placeholder="Amount proposed to the translater"
-                              />
-                              <button  className="bg-gray-200 px-5">Clear</button>
-                          </div>
-                      </div>
+        <DashboardLayout>
+            {
+                !hidden
+                ? (
+                    <Modal setHidden={setHidden}>
+                        <Card>
+                        {
+                            isSuccess
+                            ? (
+                                <span>
+                                    <p className="text-green-500 text-lg mt-2 text-center">
+                                        Your apply is registered 
+                                    </p>
+                                    <BackToDashboardButton/>
+                                </span>
+                            )
+                            : (
+                                <span>
+                                    <p className="text-red-500 text-lg mt-2 text-center">
+                                        An error occured 
+                                    </p>
+                                </span>
+                            )
+                        }
+                        </Card>
+                    </Modal>
+                )
+                : ''
+            }
+            
+            <div className="w-full h-full text-black p-5 overflow-auto">
+                <RequestHeaderLayout title="Request for translation">
+                    Complete the form and submit your request for translation
+                </RequestHeaderLayout>
+                <div className="">
+                    <form action="" onSubmit={handleSubmit}>
+                        <div className="flex flex-col items-center py-6">
 
-                      <div className="mb-1">
-                          <label htmlFor="currency" className="text-md">Currency</label>
-                          <select name="currency"  className="border block w-full p-2 shadow-inner bg-white" id="">
-                              <option htmlFor="option in props.options" value="option.value">Clear</option>
-                          </select>
-                      </div>
+                            <div className="my-3 w-2/3">
+                                <label htmlFor="lang1" className="text-md">Document language</label>
+                                <select name="lang1" onChange={handleChange1} className="border block w-full p-2 shadow-inner bg-white" id="">
+                                    <option>select language 1</option>
+                                    <option value="1">English</option>
+                                    <option value="2">French</option>
+                                    <option value="3">Lingala</option>
+                                </select>
+                                {
+                                    !lang1.valid
+                                    ? <span className="text-red-500 text-md mt-2 text-center">Select language</span>
+                                    : ''
+                                }
+                            </div>
 
-                      <div className="mb-1">
-                          <label htmlFor="d-language" className="text-md">Document language</label>
-                          <select name="d-language"  className="border block w-full p-2 shadow-inner bg-white" id="">
-                              <option htmlFor="option in props.options" value="option.value">Clear</option>
-                          </select>
-                      </div>
-                      <div className="mb-1">
-                          <label htmlFor="t-language" className="text-md">Target language</label>
-                          <select name="t-language"  className="border block w-full p-2 shadow-inner bg-white" id="">
-                              <option htmlFor="option in props.options" value="option.value">Clear</option>
-                          </select>
-                      </div>
-                  </div>
+                            <div className="my-3 w-2/3">
+                                <label htmlFor="lang2" className="text-md">Language applied for</label>
+                                <select name="lang2" onChange={handleChange2}  className="border block w-full p-2 shadow-inner bg-white" id="">
+                                    <option>select language 2</option>
+                                    <option value="1">English</option>
+                                    <option value="2">French</option>
+                                    <option value="3">Lingala</option>
+                                </select>
+                                {
+                                    !lang2.valid
+                                    ? <span className="text-red-500 text-md mt-2 text-center">Select language</span>
+                                    : ''
+                                }
+                            </div>
+                            <IPFSUploadFile setCID={setCID} cid={cid} label="Document to translate" />
 
-                  <div className="grid grid-cols-1 my-5 px-32">
-                      <div>
-                          <label htmlFor="description" className="text-md">Description</label>
-                          <textarea name="description" id="" cols="30" rows="10" className="border block w-full p-2 shadow-inner"
-                          placeholder="Small description of the job to do ..."
-                          ></textarea>
-                      </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 my-5 px-32">
-                      <label htmlFor="file" className="text-md">Document to translate</label>
-                      <div className="mb-2 flex">
-                          <input type="file" name="file" className="border bg-white block w-full p-2 shadow-inner"/>
-                          <button  className="bg-gray-200 px-5">Clear</button>
-                      </div>
-                  </div>
-
-                  <div className="flex justify-center">
-                      <Button content="Submit request" type="primary"/>
-                      <BackToDashboardButton/>
-                  </div>
-              </form>
-          </div>
-        </div>
-      </DashboardLayout>
+                            <div className="my-3 flex justify-between">
+                                <Button type="primary" content="Apply"/>
+                                <BackToDashboardButton/>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </DashboardLayout>
     )
 }
 
