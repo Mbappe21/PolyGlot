@@ -17,7 +17,7 @@ export const useRequestList = () => {
     let arr = []
     const getRequests = (contract, i, arr) => {
         return contract.findRequest(i)
-            .then(arr)(val => {
+            .then(val => {
             if(isNullAddr(val[0]["_hex"])){
                 return arr
             } else {
@@ -30,8 +30,11 @@ export const useRequestList = () => {
             console.log('test',error)
             return
             })
+
     }
     getRequests(contract, 1, arr)
+
+    console.log("arr test : ", arr[0])
     return arr
     
 }

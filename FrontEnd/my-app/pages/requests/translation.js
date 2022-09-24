@@ -149,7 +149,9 @@ const Translation = (props) => {
                                     : ''
                                 }
                             </div>
-                            <IPFSUploadFile setCID={setCID} cid={cid} label="Document to translate" />
+                            <div className="my-3 w-2/3">
+                                <IPFSUploadFile setCID={setCID} cid={cid} label="Document to translate" />
+                            </div>
 
                             <div className="my-3 flex justify-between">
                                 <Button type="primary" content="Apply"/>

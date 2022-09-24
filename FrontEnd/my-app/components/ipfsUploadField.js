@@ -52,7 +52,7 @@ const IPFSUploadFile = (props) => {
 
     useEffect(() => {
         if(isUploading){
-            setButtonStyle({type: "", text: "Uploading..."})
+            setButtonStyle({type: "", text: "Uploading...", disabled: true})
         } else {
             setButtonStyle({type: "primary", text: "Upload File"})
         }
@@ -60,13 +60,13 @@ const IPFSUploadFile = (props) => {
 
 
     return (
-        <div className="my-3 w-2/3">
+        <div className="my-3 w-full">
             <label htmlFor="file" className="text-md">{props.label}</label>
             <div className="mb-2 flex items-center justify-between">
-                <input type="file" onInput={handleFile} name="file" className="border bg-white block w-2/3 p-2 shadow-inner"/>
+                <input type="file" onInput={handleFile} name="file" className="border bg-white block w-3/4 p-2 shadow-inner"/>
                 <span onClick={handleUpload}>
                     <span className={isUploading ? "animate-pulse" : ""}>
-                        <Button type={buttonStyle.type} content={buttonStyle.text}/>
+                        <Button type={buttonStyle.type} disabled={buttonStyle.disabled} content={buttonStyle.text}/>
                     </span>
                 </span>
             </div>

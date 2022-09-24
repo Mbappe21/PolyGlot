@@ -1,24 +1,40 @@
 import React, { useState } from 'react';
-import Link from 'next/link';
-import MainLayout from '../../components/mainLayout';
 import DashboardLayout from '../../components/dashboardLayout';
-import TableLayout from '../../components/tableLayout';
 import CardLink from '../../components/cardLink';
-import Card from '../../components/card';
-import TableWithModal from '../../components/tableWithModal';
 import RequestHeaderLayout from '../../components/requestHeader';
+import { useAccount, useContract, useSigner } from 'wagmi';
+import { contractABI, ContractAddress } from '../../datas/constDatas';
+import TableGetTranslation from '../../components/tableGetTranslation';
+import { convertToLang, displayAddr, isNullAddr } from '../../utils/functions';
+import TableSubmitTranslation from '../../components/tableSubmitTranslation';
 
 
 const Dashboard = () => {
 
-  const headList = ["Doc language", "Target language", "Accepted by", "Stage"]
+  const [pendingTrans, setPendingTrans] = useState({ is: false, check: false})
 
-  const tableContent = [
-    ["Bonjour", "Bonsoir", "Salut", "Au revoir"],
-    ["Bonjour", "Bonsoir", "Salut", "Au revoir"],
-    ["Bonjour", "Bonsoir", "Salut", "Au revoir"],
-  ]
+  const {data: signer} = useSigner()
+  const { address } = useAccount()
 
+  const contract = useContract({
+    addressOrName: ContractAddress,
+    contractInterface: contractABI,
+    signerOrProvider: signer
+  })
+  
+  if(!pendingTrans.check){
+    contract.findPendingTranslator(address)
+    .then(val => {
+      if(isNullAddr(val[0])){
+        setPendingTrans({ is: false, check: false})
+      } else {
+        setPendingTrans({ is: true, check: true, nOfRequest: val.nOfRequest})
+      }
+    }).catch(err =>{
+      console.log(err)
+    })
+
+  }
 
     return (
         
@@ -29,17 +45,24 @@ const Dashboard = () => {
 
               </RequestHeaderLayout>
                 <div className="px-32">
-
-                    <div className='mb-10'>
-                        <h2 className="text-2xl">Information</h2>
-                        <div className="text-gray-500 ml-4 mt-2 font-semibold w-3/5">
-                            <p >You have applied for translator role, your request is processing.</p>
+                    {pendingTrans.is
+                      ? (
+                        <div className='mb-10'>
+                            <h2 className="text-2xl">Information</h2>
+                            <div className="text-gray-500 ml-4 mt-2 font-semibold w-3/5">
+                                <p >You have applied for translator role, your request is processing.</p>
+                                <p className='text-2xl text-gray-600'>Number of test document receive : {parseInt(pendingTrans.nOfRequest) ?parseInt(pendingTrans.nOfRequest) : 0}</p>
+                            </div>
                         </div>
-                    </div>
+                      ) : ''
 
-                    {/* <TableWithModal title="test with modal" headList={headList} lines={tableContent}/> */}
+                    }
+                    {/* <!--use global state to verify--> */}
+                    <TableSubmitTranslation title="My Requests for translation accept" />
+                    <TableGetTranslation title="My Requests translation emmit" />
+                     
+                    
 
-                    {/* <TableLayout title="My transaltion asked" headList={headList} lines={tableContent} /> */}
 
                     <div className="mb-3">
                         <div className="flex justify-center gap-4">
