@@ -6,9 +6,10 @@ import { isNullAddr } from "../utils/functions"
 import Button from "./button"
 import Modal from "./modal"
 import ModalCollectFunds from "./modalCollectFunds"
+import ModalJugeTranslation from "./modalJugeTranslation"
 import ModalSubmitTranslation from "./modalSubmitTranslation"
 
-const TableSubmitTranslation = (props) => {
+const TableJugeTranslation = (props) => {
 
   const [hidden, setHidden] = useState(true)
   const [cid, setCID] = useState()
@@ -36,10 +37,10 @@ const TableSubmitTranslation = (props) => {
       if(isNullAddr(val[0]["_hex"]) && requestList.fetchL){
         if(arr.length > 0){
           setRequestList({rList: arr, fetchL: false})
-          setMyRequest(arr.filter(ele => ele.translator === address)
+          setMyRequest(arr.filter(ele => ele.stage === 3)
           .map(ele => { return {content: [convertToLang(ele.docLang), convertToLang(ele.langNeeded), 
             displayAddr(ele.translator), parseInt(ele.stage)], id: `${ele.requestId}-${ele.client}`, 
-            ipfs: ele.description, approvals: ele.approvals, denials:ele.denials, stage:ele.stage}})
+            ipfs: ele.description, approvals: parseInt(ele.approvals), denials: parseInt(ele.denials), stage: parseInt(ele.stage), source: isNullAddr(ele.client)}})
             )
         } else {
           setMyRequest([])
@@ -94,12 +95,7 @@ const TableSubmitTranslation = (props) => {
           ? ''
           : (
             <Modal setHidden={setHidden}>
-              {
-                stage >= 3 
-                ? <ModalCollectFunds setCID={setCID} approvals={approvals} denials={denials}  />
-                :<ModalSubmitTranslation setCID={setCID} cid={cid} currentRequestIPFS={currentRequestIPFS} currentRequestId={currentRequestId} />
-              }
-              
+              <ModalJugeTranslation setCID={setCID} cid={cid} currentRequestIPFS={currentRequestIPFS} currentRequestId={currentRequestId} />
             </Modal>
           )
         }
@@ -120,23 +116,31 @@ const TableSubmitTranslation = (props) => {
               <tbody className="border">
                   {
                     myRequest.map((line, index) => 
-                      <tr className="hover:bg-slate-50 text-center hover:cursor-pointer border-t-2" title="click to view more" key={index} onClick={openModal}>
+                      <tr className={"hover:bg-slate-50 text-center hover:cursor-pointer border-t-2"+line.source===0 ? "bg-amber-200":""} title="click to view more" key={index} onClick={openModal}>
                         {
                           line.content.map(col =>
                             <td className="p-2" key={`${line.id}-${col}`}>{col}</td>
                           )
                         }
                         <td className="p-2">
-                          <form onSubmit={handleSubmit}>
-                            <input type="hidden" name="nRequest" value={line.requestId}/>
-                            <input type="hidden" name="clientCidr" value={line.ipfs}/>
-                            <input type="hidden" name="approvals" value={line.approvals}/>
-                            <input type="hidden" name="denials" value={line.denials}/>
-                            <input type="hidden" name="stage" value={line.stage}/>
-                            <span>
-                              <Button content="Detail" type="primary" />
-                            </span>
-                          </form>
+                          {
+                            line.stage === 4
+                            ?(
+                              <Button content="Request closed" type="" disabled={true} />
+                            )
+                            :(
+                              <form onSubmit={handleSubmit}>
+                                <input type="hidden" name="nRequest" value={line.requestId}/>
+                                <input type="hidden" name="clientCidr" value={line.ipfs}/>
+                                <input type="hidden" name="approvals" value={line.approvals}/>
+                                <input type="hidden" name="denials" value={line.denials}/>
+                                <input type="hidden" name="stage" value={line.stage}/>
+                                <span>
+                                  <Button content="Detail" type="primary" />
+                                </span>
+                              </form>
+                            )
+                          }
                         </td>
                       </tr>
                     )
@@ -148,4 +152,4 @@ const TableSubmitTranslation = (props) => {
     )
 }
 
-export default TableSubmitTranslation
+export default TableJugeTranslation

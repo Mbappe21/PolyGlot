@@ -9,6 +9,7 @@ import Modal from "./modal"
 const TableGetTranslation = (props) => {
   const [requestList, setRequestList] = useState({rList: [], fetchL: true})
   const [myRequest, setMyRequest] = useState([])
+  const [pendingTrans, setPendingTrans] = useState({ is: false, check: false})
 
   const {data: signer} = useSigner()
   const { address } = useAccount()
@@ -19,6 +20,20 @@ const TableGetTranslation = (props) => {
     signerOrProvider: signer
   })
 
+  if(!pendingTrans.check){
+    contract.findPendingTranslator(address)
+    .then(val => {
+      if(isNullAddr(val[0])){
+        setPendingTrans({ is: false, check: false})
+      } else {
+        setPendingTrans({ is: true, check: true, nOfRequest: val.nOfRequest})
+      }
+    }).catch(err =>{
+      console.log(err)
+    })
+
+  }
+
   const getRequests = (contract, i, arr=[]) => {
     contract.findRequest(i)
     .then(val => {
@@ -26,7 +41,7 @@ const TableGetTranslation = (props) => {
         setRequestList({rList: arr, fetchL: false})
         setMyRequest(arr.filter(ele => ele.client === address)
         .map(ele => { return {content: [convertToLang(ele.docLang), convertToLang(ele.langNeeded), 
-          displayAddr(ele.translator), parseInt(ele.stage)], id: `${ele.requestId}-${ele.client}`, ipfs: ele.description, approvals: ele.approvals}})
+          displayAddr(ele.translator), parseInt(ele.stage)], client: ele.client, id: `${ele.requestId}-${ele.client}`, ipfs: ele.description, approvals: ele.approvals, stage: ele.stage}})
         )
         console.log(arr)
       } else {
@@ -40,6 +55,24 @@ const TableGetTranslation = (props) => {
     })
   }
   getRequests(contract, 1)
+
+  const recollectFunds = (requestId) =>{
+    contract.recollectFunds(requestId)
+    .then(val => {
+      console.log(val)
+    }).catch(err => {
+      console.log(err)
+    })
+  }
+
+  const collectRequest = (requestId) => {
+    contract.collectRequest(requestId)
+    .then(val => {
+      console.log(val)
+    }).catch(err => {
+      console.log(err)
+    })
+  }
 
   return (myRequest &&
     <div>
@@ -66,11 +99,28 @@ const TableGetTranslation = (props) => {
                         )
                       }
                       <td className="p-1">
-                        <Link href={line.approvals>1 ?`https://${line.ipfs}.ipfs.w3s.link` : ''}>
-                          <span>
-                            <Button content="Download" disabled={line.approvals>1 ? true : false} type={line.approvals>1 ? 'success' : ''} />
-                          </span>
-                        </Link>
+                        {
+                          isNullAddr(line.client) && line.approvals > 2 && pendingTrans.is
+                          ?(
+                            <span onClick={() => collectRequest(line.requestId)}>
+                              <Button type="primary" content="Collect Request" />
+                            </span>
+                          )
+                          : line.stage === 5
+                          ?(
+                            <span onClick={() => recollectFunds(line.requestId)}>
+                              <Button type="danger" content="Recolt my funds" />
+                            </span>
+                          )
+                          :(
+                            <Link href={line.stage==4 ?`https://${line.ipfs}.ipfs.w3s.link` : ''}>
+                              <span>
+                                <Button content="Download" disabled={line.approvals!==4 ? true : false} type={line.approvals>1 ? 'success' : ''} />
+                              </span>
+                            </Link>
+                          )
+                        }
+                        
                       </td>
                     </tr>
                   )

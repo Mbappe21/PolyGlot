@@ -8,6 +8,8 @@ const Button = (props) => {
   ? "bg-amber-600"
   : props.type.toLowerCase() === "success" 
   ? "bg-green-500"
+  : props.type.toLowerCase() === "success"
+  ? "bg-red-500"
   : "bg-gray-600"
 
   return (

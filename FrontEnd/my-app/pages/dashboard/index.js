@@ -5,8 +5,10 @@ import RequestHeaderLayout from '../../components/requestHeader';
 import { useAccount, useContract, useSigner } from 'wagmi';
 import { contractABI, ContractAddress } from '../../datas/constDatas';
 import TableGetTranslation from '../../components/tableGetTranslation';
-import { convertToLang, displayAddr, isNullAddr } from '../../utils/functions';
+import { isNullAddr } from '../../utils/functions';
 import TableSubmitTranslation from '../../components/tableSubmitTranslation';
+import TablePendingTranslator from '../../components/tablePendingTranslator';
+import TableJugeTranslation from '../../components/tableJugeTranslation';
 
 
 const Dashboard = () => {
@@ -58,8 +60,11 @@ const Dashboard = () => {
 
                     }
                     {/* <!--use global state to verify--> */}
-                    <TableSubmitTranslation title="My Requests for translation accept" />
-                    <TableGetTranslation title="My Requests translation emmit" />
+                    <TableJugeTranslation title="test juge translation" />
+                    <TablePendingTranslator title="test" />
+                    {/* <TableSubmitTranslation title="My Requests for translation accept" /> */}
+                    {/* <TableGetTranslation title="My Requests translation emmit" /> */}
+
                      
                     
 
