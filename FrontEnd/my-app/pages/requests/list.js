@@ -1,13 +1,20 @@
 import RequestHeaderLayout from "../../components/requestHeader"
 import DashboardLayout from "../../components/dashboardLayout"
-import Button from "../../components/button"
-import Card from "../../components/card"
-import { chainId, useContract, useContractRead, useNetwork, useProvider, useSigner, useSwitchNetwork } from "wagmi"
+import { useContract, useContractRead, useSigner } from "wagmi"
 import { contractABI, ContractAddress } from "../../datas/constDatas"
 import { useEffect, useState } from "react"
+import Card from "../../components/card"
+import Button from "../../components/button"
 
 
 const List = (props) => {
+
+  const langs = {
+    1: "English",
+    2: "French",
+    3: "Lingala",
+  }
+  const [requestList, setRequestList] = useState({rList: [], fetchL: true})
 
   const {data: signer} = useSigner()
 
@@ -17,50 +24,46 @@ const List = (props) => {
     signerOrProvider: signer
   })
 
-  useEffect(() => {
-    contract.pendingRequests(0).then(val => console.log(val)).catch(err => console.log(err))
-  }, [])
+  const isNullAddr = (addr) => {
+    return parseInt(addr.slice(2)) === 0 ? true : false
+  }
 
-  // const { data: signer } = useSigner()
-  // const { chains, isError,pendingChainId, switchNetworkAsync } =
-  //   useSwitchNetwork()
+  const getRequests = (contract, i, arr=[]) => {
+    contract.findRequest(i)
+    .then(val => {
+      if(isNullAddr(val[0]["_hex"]) && requestList.fetchL){
+        let tab = arr.filter(val => val.accepted === false)
+        setRequestList({rList: tab, fetchL: false})
+          return arr
+      } else {
+          let nextI = i + 1
+          arr.push(val)
+          return getRequests(contract, nextI, arr)
+      }
+    }).catch(error =>{
+      console.log('test',error)
+      return
+    })
+  }
 
-  // const [currentChain, setCurrentChain] = useState(null)
+  getRequests(contract, 1)
 
-  // const contract = useContract({
-  //   addressOrName: ContractAddress,
-  //   contractInterface: contractABI,
-  //   signerOrProvider: signer
-  // })
+  const handleSubmit = (e) =>{
+    e.preventDefault()
+    const data = new FormData(e.target)
+    let value 
+    for (let val of data.values()){
+      value = val
+    }
 
-  // const [userRole, setUserRole] = useState({
-  //   translator: false,
-  //   validator: false,
-  // })
-
-  // const isNullAddr = (addr) => {
-  //   return parseInt(addr.slice(2)) === 0 ? true : false
-  // }
-
-  // const isTranslator = (addr) => {
-  //   contract.findTranslator(addr)
-  //   .then(response =>{
-  //     if(!isNullAddr(response[0])){
-  //       setUserRole({
-  //         translator: true,
-  //         validator: response.validator
-  //       })
-  //     }
-  //   }).catch(error =>{
-  //     console.log(error)
-  //   })
-  // }
-
-  //   useEffect(()=>{
-  //     isTranslator(signer._address)
-  //     console.log(userRole)
-  //   }, [])
-
+    contract.acceptTranslation(value)
+    .then(val => {
+      console.log(val)
+    }).catch(err => {
+      console.log(err)
+    })
+  }
+  
 
   return (
     <DashboardLayout>
@@ -68,42 +71,28 @@ const List = (props) => {
           <RequestHeaderLayout title="Client Request">
             See latests clients requests
           </RequestHeaderLayout>
-          <div className="grid grid-cols-4 gap-2 px-32">
-            <Card cardTitle="Protect Earth">
-              <p>Current language: Spanish</p>
-              <p>Target language: German</p>
-              <p>Amount Proposed: 1 ETH</p>
-              <p>Since: 3 days</p>
-              <p>Period: 20 days</p>
-              <div className="flex justify-center">
-                <Button content="Detail" type="primary"/>
-              </div>
-            </Card>
-            <Card cardTitle="Protect Earth">
-              <p>Current language: Spanish</p>
-              <p>Target language: German</p>
-              <p>Amount Proposed: 1 ETH</p>
-              <p>Since: 3 days</p>
-              <p>Period: 20 days</p>
-              <div className="flex justify-center">
-                <span>
-
-                  <Button content="Detail" type="primary"/>
-                </span>
-              </div>
-            </Card>
+          <div className="grid grid-cols-4 gap-2 px-32" id="card-container">
+            {
+              requestList.rList.map(val => (
+                <Card cardTitle={val.client} key={val.requestId}>
+                  <p>Document language: {langs[parseInt(val.docLang)]}</p>
+                  <p>Target language: {langs[parseInt(val.langNeeded)]}</p>
+                  <div className="flex justify-center">
+                    <form onSubmit={handleSubmit}>
+                      <input type="hidden" value={val.requestId} name={`r-${val.requestId}`} />
+                      <Button content="Accept" type="primary"/>
+                    </form>
+                  </div>
+                </Card>                 
+              ))
+            }
           </div>
         </div>
+        <scrip>
+          
+        </scrip>
     </DashboardLayout>
   )
 }
-
-
-// export async function getServerSideProps() {
-
-//   return {
-
-//   }
-// }
 
 export default List
