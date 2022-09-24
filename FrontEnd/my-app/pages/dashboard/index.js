@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import DashboardLayout from '../../components/dashboardLayout';
 import CardLink from '../../components/cardLink';
 import RequestHeaderLayout from '../../components/requestHeader';
@@ -9,6 +9,7 @@ import { isNullAddr } from '../../utils/functions';
 import TableSubmitTranslation from '../../components/tableSubmitTranslation';
 import TablePendingTranslator from '../../components/tablePendingTranslator';
 import TableJugeTranslation from '../../components/tableJugeTranslation';
+import { RoleContext, RoleProvider } from '../../contexts/role';
 
 
 const Dashboard = () => {
@@ -23,6 +24,26 @@ const Dashboard = () => {
     contractInterface: contractABI,
     signerOrProvider: signer
   })
+
+  const [isTranslator, setIsTranslator] = useState(false)
+  const [isPendingTranslator, setIsPendingTranslator] = useState(false)
+  const [isValidator, setIsValidator] = useState(false)
+
+  contract.findTranslator(address)
+  .then(val => {
+    console.log("cool")
+      if(isNullAddr(val.translator)){
+          setIsTranslator(false)
+      } else {
+          setIsTranslator(true)
+          if(val.validator){
+              setIsValidator(true)
+          } else {
+              setIsValidator(false)
+          }
+      }
+  }). catch (err => console.log(err))
+
   
   if(!pendingTrans.check){
     contract.findPendingTranslator(address)
@@ -39,12 +60,11 @@ const Dashboard = () => {
   }
 
     return (
-        
         <div>          
           <DashboardLayout>
           <div className="bg-white">
               <RequestHeaderLayout title="Dashboard">
-
+                All your management here
               </RequestHeaderLayout>
                 <div className="px-32">
                     {pendingTrans.is
@@ -59,11 +79,24 @@ const Dashboard = () => {
                       ) : ''
 
                     }
-                    {/* <!--use global state to verify--> */}
-                    <TableJugeTranslation title="test juge translation" />
-                    <TablePendingTranslator title="test" />
-                    {/* <TableSubmitTranslation title="My Requests for translation accept" /> */}
-                    {/* <TableGetTranslation title="My Requests translation emmit" /> */}
+
+                    {
+                      isValidator
+                      ?(
+                        <div>
+                          <TableJugeTranslation title="test juge translation" />
+                          <TablePendingTranslator title="test" />
+                        </div>
+                      ):''
+                    }
+                    {
+                      isTranslator || isValidator
+                      ?(
+                        <TableSubmitTranslation title="My Requests for translation accept" />
+                      ):''
+                    }
+
+                    <TableGetTranslation title="My Requests translation emmit" />
 
                      
                     
@@ -71,13 +104,25 @@ const Dashboard = () => {
 
                     <div className="mb-3">
                         <div className="flex justify-center gap-4">
-                          <CardLink cardTitle="Become a translator" href="/requests/becometranslator">
-                            <p>Start earn money by offering a translator service</p>
-                          </CardLink>
-                          <CardLink cardTitle="Get documentation" href="/request/translation">
+                          {
+                            isTranslator
+                            ?(
+                              <CardLink cardTitle="Become a validator" href="/requests/becomevalidator">
+                                <p>Become the master</p>
+                              </CardLink>
+                            )
+                            : isPendingTranslator || isValidator
+                            ? ''
+                            :(
+                              <CardLink cardTitle="Become a translator" href="/requests/becometranslator">
+                                <p>Start earn money by offering a translator service</p>
+                              </CardLink>
+                            )
+                          }
+                          <CardLink cardTitle="Get documentation" href="/dashboard/documentation">
                             <p>Consult web3 documentation in many languages</p>
                           </CardLink>
-                          <CardLink cardTitle="Ask for translation" href="/request/translation">
+                          <CardLink cardTitle="Ask for translation" href="/requests/translation">
                             <p>Request to ask translation for your documents</p>
                           </CardLink>
                         </div>

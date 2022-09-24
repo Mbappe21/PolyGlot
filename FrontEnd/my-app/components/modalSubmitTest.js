@@ -19,7 +19,7 @@ const ModalSubmitTest = (props) => {
     const handleTranslationSubmit = (e) => {
         e.preventDefault()
         if(cid && props.pendingTranslator){
-            console.log("cid",props.langNeeded)
+            console.log(props.pendingTranslator)
             contract.giveTestTranslation(props.pendingTranslator, cid, props.docLang, props.langNeeded)
             .then(val => {
                 console.log(val)

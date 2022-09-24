@@ -16,6 +16,7 @@ import {
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { publicProvider } from 'wagmi/providers/public';
 import { useRouter } from "next/router";
+import { RoleProvider } from '../contexts/role';
 
 const { chains, provider } = configureChains(
   [chain.polygon, chain.polygonMumbai, chain.mainnet, chain.goerli, chain.rinkeby],
@@ -39,14 +40,18 @@ const wagmiClient = createClient({
 
 
 function MyApp({ Component, pageProps }) {
+  
   return (
+    
     <WagmiConfig client={wagmiClient}>
       <RainbowKitProvider chains={chains}>
         <Head>
           <title>Polyglot</title>
           <link rel="icon" href="/favicon.ico" />
         </Head>
-       <Component {...pageProps} />
+        <RoleProvider>
+          <Component {...pageProps} />
+        </RoleProvider>
       </RainbowKitProvider>
     </WagmiConfig>
   )
