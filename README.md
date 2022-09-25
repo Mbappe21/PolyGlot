@@ -17,9 +17,13 @@ https://mumbai.polygonscan.com/tx/0x76457900b877e806a5d8c43afc9e842bad04463dc68c
 `npm install`
 *Make sure to use node version of at least 14
 
+`npm run dev
+
 ## 📃 Contracts
 
 The contract is Second.sol in the `/contract`folder
 
 The NFT contract is Rewards.sol in the `/contract`folder
+
+
 
