@@ -7,6 +7,7 @@ import { useRouter } from 'next/router';
 
 import { useUser } from '../hooks/useUser'
 import { contractABI, ContractAddress } from '../datas/constDatas';
+import { isNullAddr } from './../utils/functions'
 
 const Navbar = () => {
 
@@ -23,24 +24,21 @@ const Navbar = () => {
     signerOrProvider: signer
   })
 
-  const [isTranslator, setIsTranslator] = useState(false)
-  const [isPendingTranslator, setIsPendingTranslator] = useState(false)
-  const [isValidator, setIsValidator] = useState(false)
+//   const [isTranslator, setIsTranslator] = useState({translator: false, validator: false, fetched: false})
 
-  contract.findTranslator(address)
-  .then(val => {
-    console.log("cool")
-      if(isNullAddr(val.translator)){
-          setIsTranslator(false)
-      } else {
-          setIsTranslator(true)
-          if(val.validator){
-              setIsValidator(true)
-          } else {
-              setIsValidator(false)
-          }
-      }
-  }). catch (err => console.log(err))
+//   if(!isTranslator.fetched){
+//     contract.findTranslator(address)
+//     .then(val => {
+//       console.log("trad",val)
+//         if(isNullAddr(val.translator)){
+//             setIsTranslator({translator: false, validator: false, fetched: true})
+//         } else {
+//             setIsTranslator({translator: true, validator: val.validator, fetched: true})
+//         }
+//     }). catch (err => console.log(err))
+
+//   }
+  
 
   const router = useRouter()
 
@@ -78,7 +76,7 @@ const Navbar = () => {
                             <ActiveLink href="/dashboard" name="Dashboard"/>
                         </li>
                         {
-                            isValidator || isTranslator
+                            true
                             ?(
                                 <li className="mx-4">
                                     <ActiveLink href="/requests/list" name="Clients requests"/>

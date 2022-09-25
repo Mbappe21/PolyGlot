@@ -18,6 +18,7 @@ const ModalJugeTranslation = (props) => {
       contractInterface: contractABI,
       signerOrProvider: signer
     })
+ 
 
     const approveTranslation = () => {
         if(props.currentRequestId){
@@ -31,11 +32,13 @@ const ModalJugeTranslation = (props) => {
     }
 
     contract.hasApproved(address, props.currentRequestId)
-    .then(val => setHasApproved(val))
+    .then(val => setHasApproved(true))
     .catch(err => console.log(err))
 
+    console.log('approved',hasApproved)
+
     contract.hasDenied(address, props.currentRequestId)
-    .then(val => setHasDenied(val))
+    .then(val => setHasDenied(true))
     .catch(err => console.log(err))
 
     const getPaidAfterApproval = () => {
@@ -52,7 +55,7 @@ const ModalJugeTranslation = (props) => {
 
     const denyTranslation = () => {
         if(props.currentRequestId){
-            contract.voteTranslator(props.currentRequestId)
+            contract.denyTranslation(props.currentRequestId)
             .then(val => {
                 console.log(val)
             }) .catch(err => {
@@ -64,7 +67,8 @@ const ModalJugeTranslation = (props) => {
     return(
         <div className="hover:bg-slate-50 hover:cursor-pointer drop-shadow text-center border w-full p-3 rounded-md bg-white">
             {
-                props.stage !== 5 && props.stage !== 4
+
+                props.stage !== 5 && props.stage !== 4 && !hasDenied && !hasApproved
                 ?(
                     <>
                         <div className="border-b-4 p-3 text-start">
@@ -111,7 +115,13 @@ const ModalJugeTranslation = (props) => {
                         </div>
                     </div>
                 )
-                :(
+                : hasApproved || hasDenied
+                ? (
+                    <div className="text-center text-lg text-gray-600 mt-2">
+                        You already vote
+                    </div>
+                )
+                : (
                     <div className="text-center text-lg text-gray-600 mt-2">
                         The request is closed
                     </div>

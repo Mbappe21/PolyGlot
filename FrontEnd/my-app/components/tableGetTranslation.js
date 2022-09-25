@@ -1,14 +1,14 @@
 import Link from "next/link"
-import { useState } from "react"
-import { useAccount, useContract, useSigner } from "wagmi"
+import { useContext, useState } from "react"
+import { useAccount, useContract, useContractRead, useSigner } from "wagmi"
+import { DataContext } from "../contexts/dataContext"
 import { contractABI, ContractAddress } from "../datas/constDatas"
+import { get20Request } from "../datas/get20Requests"
 import { convertToLang, displayAddr, isNullAddr } from "../utils/functions"
 import Button from "./button"
 import Modal from "./modal"
 
 const TableGetTranslation = (props) => {
-  const [requestList, setRequestList] = useState({rList: [], fetchL: true})
-  const [myRequest, setMyRequest] = useState([])
   const [pendingTrans, setPendingTrans] = useState({ is: false, check: false})
 
   const {data: signer} = useSigner()
@@ -20,41 +20,20 @@ const TableGetTranslation = (props) => {
     signerOrProvider: signer
   })
 
-  if(!pendingTrans.check){
-    contract.findPendingTranslator(address)
-    .then(val => {
-      if(isNullAddr(val[0])){
-        setPendingTrans({ is: false, check: false})
-      } else {
-        setPendingTrans({ is: true, check: true, nOfRequest: val.nOfRequest})
-      }
-    }).catch(err =>{
-      console.log(err)
-    })
+  const requests =  props.requests.filter(ele => ele?.client === address)
+  .map(ele => 
+    { return ele === undefined 
+      ? {content: [], }
+      : {content: 
+        [convertToLang(ele?.docLang), convertToLang(ele?.langNeeded), displayAddr(ele?.translator), parseInt(ele?.stage)], 
+        client: ele?.client, 
+        id: `${ele?.requestId}-${ele?.client}`, 
+        ipfs: ele?.description, 
+        approvals: ele?.approvals, 
+        stage: ele?.stage}
+      })
 
-  }
 
-  const getRequests = (contract, i, arr=[]) => {
-    contract.findRequest(i)
-    .then(val => {
-      if(isNullAddr(val[0]["_hex"]) && requestList.fetchL){
-        setRequestList({rList: arr, fetchL: false})
-        setMyRequest(arr.filter(ele => ele.client === address)
-        .map(ele => { return {content: [convertToLang(ele.docLang), convertToLang(ele.langNeeded), 
-          displayAddr(ele.translator), parseInt(ele.stage)], client: ele.client, id: `${ele.requestId}-${ele.client}`, ipfs: ele.description, approvals: ele.approvals, stage: ele.stage}})
-        )
-        console.log(arr)
-      } else {
-          let nextI = i + 1
-          arr.push(val)
-          return getRequests(contract, nextI, arr)
-      }
-    }).catch(error =>{
-      console.log('test',error)
-      return
-    })
-  }
-  getRequests(contract, 1)
 
   const recollectFunds = (requestId) =>{
     contract.recollectFunds(requestId)
@@ -73,8 +52,8 @@ const TableGetTranslation = (props) => {
       console.log(err)
     })
   }
-
-  return (myRequest &&
+  
+  return (
     <div>
       <div className='mb-10'>
         <h2 className="text-2xl">{props.title}</h2>
@@ -91,7 +70,7 @@ const TableGetTranslation = (props) => {
             </thead>
             <tbody className="border">
                 {
-                  myRequest.map((line, index) => 
+                  requests?.map((line, index) => 
                     <tr className="hover:bg-slate-50 text-center hover:cursor-pointer border-t-2" key={`${line.requestId}-${index}`}>
                       {
                         line.content.map(col =>

@@ -2,7 +2,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { useAccount, useContract, useSigner } from "wagmi"
 import { contractABI, ContractAddress } from "../datas/constDatas"
-import { isNullAddr } from "../utils/functions"
+import { convertToLang, displayAddr, isNullAddr } from "../utils/functions"
 import Button from "./button"
 import Modal from "./modal"
 import ModalCollectFunds from "./modalCollectFunds"
@@ -30,34 +30,42 @@ const TableJugeTranslation = (props) => {
     signerOrProvider: signer
   })
 
+  const requests = props.requests.filter(ele =>  parseInt(ele?.stage) === 3).map(ele => { return ele === undefined ? {content:[]}: {content: [convertToLang(ele?.docLang), convertToLang(ele?.langNeeded), 
+    displayAddr(ele?.translator), parseInt(ele?.stage)], id: `${ele?.requestId}-${ele?.client}`, 
+    ipfs: ele?.description, approvals: parseInt(ele?.approvals), denials: parseInt(ele?.denials), stage: parseInt(ele?.stage), source: isNullAddr(ele?.client), requestId: ele.requestId}}) 
+    
+    props.requests.forEach(ele => console.log(ele))
 
-  const getRequests = (contract, i, arr=[]) => {
-    contract.findRequest(i)
-    .then(val => {
-      if(isNullAddr(val[0]["_hex"]) && requestList.fetchL){
-        if(arr.length > 0){
-          setRequestList({rList: arr, fetchL: false})
-          setMyRequest(arr.filter(ele => ele.stage === 3)
-          .map(ele => { return {content: [convertToLang(ele.docLang), convertToLang(ele.langNeeded), 
-            displayAddr(ele.translator), parseInt(ele.stage)], id: `${ele.requestId}-${ele.client}`, 
-            ipfs: ele.description, approvals: parseInt(ele.approvals), denials: parseInt(ele.denials), stage: parseInt(ele.stage), source: isNullAddr(ele.client)}})
-            )
-        } else {
-          setMyRequest([])
-        }
-        console.log('another test',myRequest)
-      } else {
-          let nextI = i + 1
-          arr.push(val)
-          return getRequests(contract, nextI, arr)
-      }
-    }).catch(error =>{
-      console.log('test',error)
-      return
-    })
-  }
-  getRequests(contract, 1)
+  // const getRequests = (contract, i, arr=[]) => {
+  //   contract.findRequest(i)
+  //   .then(val => {
+  //     if(isNullAddr(val[0]["_hex"]) && requestList.fetchL){
+  //       if(arr.length > 0){
+  //         setRequestList({rList: arr, fetchL: false})
+  //         setMyRequest(arr.filter(ele => ele.stage === 3)
+  //         .map(ele => { return {content: [convertToLang(ele.docLang), convertToLang(ele.langNeeded), 
+  //           displayAddr(ele.translator), parseInt(ele.stage)], id: `${ele.requestId}-${ele.client}`, 
+  //           ipfs: ele.description, approvals: parseInt(ele.approvals), denials: parseInt(ele.denials), stage: parseInt(ele.stage), source: isNullAddr(ele.client)}})
+  //           )
+  //       } else {
+  //         setMyRequest([])
+  //       }
+  //       console.log('another test',myRequest)
+  //     } else {
+  //         let nextI = i + 1
+  //         arr.push(val)
+  //         return getRequests(contract, nextI, arr)
+  //     }
+  //   }).catch(error =>{
+  //     console.log('test',error)
+  //     return
+  //   })
+  // }
+  // getRequests(contract, 1)
 
+  
+// console.log(requests)
+// console.log('uhduh',props.requests)
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -72,13 +80,13 @@ const TableJugeTranslation = (props) => {
         setCurrentRequestIPFS(entrie[1])
       }
       if(entrie[0]=="approvals"){
-        setApprovals(entrie[1])
+        setApprovals(parseInt(entrie[1]))
       }
       if(entrie[0]=="denials"){
-        setDenials(entrie[1])
+        setDenials(parseInt(entrie[1]))
       }
       if(entrie[0]=="stage"){
-        setStage(entrie[1])
+        setStage(parseInt(entrie[1]))
       }
     }
   }
@@ -87,7 +95,7 @@ const TableJugeTranslation = (props) => {
     setHidden(false)
   }
 
-    return (myRequest &&
+    return (
       <div>
 
         {
@@ -115,7 +123,7 @@ const TableJugeTranslation = (props) => {
               </thead>
               <tbody className="border">
                   {
-                    myRequest.map((line, index) => 
+                    requests.map((line, index) => 
                       <tr className={"hover:bg-slate-50 text-center hover:cursor-pointer border-t-2"+line.source===0 ? "bg-amber-200":""} title="click to view more" key={index} onClick={openModal}>
                         {
                           line.content.map(col =>
@@ -136,7 +144,7 @@ const TableJugeTranslation = (props) => {
                                 <input type="hidden" name="denials" value={line.denials}/>
                                 <input type="hidden" name="stage" value={line.stage}/>
                                 <span>
-                                  <Button content="Detail" type="primary" />
+                                  <Button content="Vote" type="primary" />
                                 </span>
                               </form>
                             )

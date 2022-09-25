@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { useEffect } from 'react'
 import { useAccount } from 'wagmi'
@@ -47,6 +48,8 @@ export default function Home() {
                         "> 
                           <div className="-rotate-45 flex flex-col items-center  gap-6 ">
                             {/* <Io.IoLayers  className="text-6xl"/> */}
+                              <Image src="/icons/layer-group-solid.svg" className="text-white" width={55} height={55} />
+                            
                             <p className="text-lg flex flex-col  items-center mx-5 leading-5">
                               <span>Explore</span>
                               <span>Documentations</span>
@@ -60,6 +63,7 @@ export default function Home() {
                           ">
                             <div className="-rotate-45 flex flex-col items-center  gap-6 ">
                               {/* <Io.IoCreateOutline  className="text-6xl font-semibold"/> */}
+                              <Image src="/icons/pen-to-square-solid.svg" className="text-white" width={55} height={55} />
                               <p className="text-lg flex flex-col  items-center mx-5 leading-5">
                                 <span>Ask for</span>
                                 <span>Translation</span>
@@ -72,6 +76,7 @@ export default function Home() {
                           ">
                             <div className="-rotate-45 flex flex-col items-center  gap-6 ">
                               {/* <Io.IoSwapHorizontal  className="text-6xl font-semibold"/> */}
+                              <Image src="/icons/right-left-solid.svg" className="text-white" width={55} height={55} />
                               <p className="text-lg flex flex-col  items-center mx-5 leading-5">
                                 <span>Become a</span>
                                 <span>Translator</span>

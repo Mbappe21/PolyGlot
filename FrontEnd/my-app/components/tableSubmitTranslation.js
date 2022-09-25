@@ -2,7 +2,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { useAccount, useContract, useSigner } from "wagmi"
 import { contractABI, ContractAddress } from "../datas/constDatas"
-import { isNullAddr } from "../utils/functions"
+import { convertToLang, displayAddr, isNullAddr } from "../utils/functions"
 import Button from "./button"
 import Modal from "./modal"
 import ModalCollectFunds from "./modalCollectFunds"
@@ -29,33 +29,45 @@ const TableSubmitTranslation = (props) => {
     signerOrProvider: signer
   })
 
+  const requests = props.requests.filter(ele => ele?.translator === address)
+  .map(ele => { 
+    return ele === undefined 
+    ? {content: [], }
+    : {content: [convertToLang(ele?.docLang), convertToLang(ele?.langNeeded), 
+    displayAddr(ele?.client), parseInt(ele?.stage)], 
+    id: `${ele?.requestId}-${ele?.client}`, 
+    ipfs: ele?.description, 
+    approvals: ele?.approvals, 
+    denials:ele?.denials, 
+    stage:ele?.stage, 
+    client:isNullAddr(ele?.client), 
+    requestId:ele?.requestId}
+  })
+    
 
-  const getRequests = (contract, i, arr=[]) => {
-    contract.findRequest(i)
-    .then(val => {
-      if(isNullAddr(val[0]["_hex"]) && requestList.fetchL){
-        if(arr.length > 0){
-          setRequestList({rList: arr, fetchL: false})
-          setMyRequest(arr.filter(ele => ele.translator === address)
-          .map(ele => { return {content: [convertToLang(ele.docLang), convertToLang(ele.langNeeded), 
-            displayAddr(ele.translator), parseInt(ele.stage)], id: `${ele.requestId}-${ele.client}`, 
-            ipfs: ele.description, approvals: ele.approvals, denials:ele.denials, stage:ele.stage}})
-            )
-        } else {
-          setMyRequest([])
-        }
-        console.log('another test',myRequest)
-      } else {
-          let nextI = i + 1
-          arr.push(val)
-          return getRequests(contract, nextI, arr)
-      }
-    }).catch(error =>{
-      console.log('test',error)
-      return
-    })
-  }
-  getRequests(contract, 1)
+  // const getRequests = (contract, i, arr=[]) => {
+  //   contract.findRequest(i)
+  //   .then(val => {
+  //     console.log('another test',myRequest)
+  //     if(isNullAddr(val[0]["_hex"]) && requestList.fetchL){
+  //       console.log("pendinggg", val)
+  //         setRequestList({rList: arr, fetchL: false})
+  //         setMyRequest(arr.filter(ele => ele.translator === address)
+  //         .map(ele => { return {content: [convertToLang(ele.docLang), convertToLang(ele.langNeeded), 
+  //           displayAddr(ele.translator), parseInt(ele.stage)], id: `${ele.requestId}-${ele.client}`, 
+  //           ipfs: ele.description, approvals: ele.approvals, denials:ele.denials, stage:ele.stage}})
+  //           )
+  //     } else {
+  //         let nextI = i + 1
+  //         arr.push(val)
+  //         return getRequests(contract, nextI, arr)
+  //     }
+  //   }).catch(error =>{
+  //     console.log('test',error)
+  //     return
+  //   })
+  // }
+  // getRequests(contract, 1)
 
 
   const handleSubmit = (e) => {
@@ -86,7 +98,8 @@ const TableSubmitTranslation = (props) => {
     setHidden(false)
   }
 
-    return (myRequest &&
+    return (
+      
       <div>
 
         {
@@ -97,7 +110,7 @@ const TableSubmitTranslation = (props) => {
               {
                 stage >= 3 
                 ? <ModalCollectFunds setCID={setCID} approvals={approvals} denials={denials}  />
-                :<ModalSubmitTranslation setCID={setCID} cid={cid} currentRequestIPFS={currentRequestIPFS} currentRequestId={currentRequestId} />
+                : <ModalSubmitTranslation setCID={setCID} cid={cid} currentRequestIPFS={currentRequestIPFS} currentRequestId={currentRequestId} />
               }
               
             </Modal>
@@ -112,15 +125,15 @@ const TableSubmitTranslation = (props) => {
                 <tr className="border">
                   <th className="p-2">Doc Language</th>
                   <th className="p-2">Target Language</th>
-                  <th className="p-2">Accepted by</th>
+                  <th className="p-2">Client</th>
                   <th className="p-2">Stage</th>
                   <th className="p-2">Action</th>
                 </tr>
               </thead>
               <tbody className="border">
                   {
-                    myRequest.map((line, index) => 
-                      <tr className="hover:bg-slate-50 text-center hover:cursor-pointer border-t-2" title="click to view more" key={index} onClick={openModal}>
+                    requests?.map((line, index) => 
+                      <tr className={`hover:bg-slate-50 text-center hover:cursor-pointer border-t-2`} title="click to view more" key={index} onClick={openModal}>
                         {
                           line.content.map(col =>
                             <td className="p-2" key={`${line.id}-${col}`}>{col}</td>

@@ -32,7 +32,7 @@ const TablePendingTranslator = (props) => {
   })
 
 
-  contract.findPendingTranslator(address)
+  contract.findPendingTranslator("0xC3d36A4268f29d05D03e2A729A9967814dCa7e37")
   .then(val => {
     const arr = [val]
     if(pendingTrans.fetchL){

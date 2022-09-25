@@ -1,10 +1,13 @@
 
 export const displayAddr = (addr) => {
-    return isNullAddr(addr) ? "<<------->>" : addr
+    return isNullAddr(addr) ? "null address" : addr
 }
 
 export const isNullAddr = (addr) => {
-    return parseInt(addr.slice(2)) === 0 ? true : false
+    if(addr !== undefined){
+        return parseInt(addr.slice(2)) === 0 ? true : false
+    }
+    return false
 }
 
 export const convertToLang = (number) => {

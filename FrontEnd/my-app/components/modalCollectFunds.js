@@ -53,7 +53,7 @@ const ModalCollectFunds = (props) => {
             <div className="text-center text-lg text-gray-600 mt-2">
                 {props.approvals > 2
                     ? "Collect your funds"
-                    : "You may collect your funds after to approvals"
+                    : "You may collect your funds after 2 approvals"
                 }
             </div>
         </div>
